@@ -415,12 +415,18 @@ public class BeanDefinitionParserDelegate {
 		String id = ele.getAttribute(ID_ATTRIBUTE);
 		String nameAttr = ele.getAttribute(NAME_ATTRIBUTE);
 
+
+		// 将 name 属性的定义按照 ”逗号、分号、空格“ 切分，形成一个别名列表数组，
+		// 当然，如果你不定义的话，就是空的了
+		// 我在附录中简单介绍了一下 id 和 name 的配置，大家可以看一眼，有个20秒就可以了
 		List<String> aliases = new ArrayList<>();
 		if (StringUtils.hasLength(nameAttr)) {
 			String[] nameArr = StringUtils.tokenizeToStringArray(nameAttr, MULTI_VALUE_ATTRIBUTE_DELIMITERS);
 			aliases.addAll(Arrays.asList(nameArr));
 		}
 
+		// 根据 <bean ...>...</bean> 中的配置创建 BeanDefinition，然后把配置中的信息都设置到实例中,
+		// 细节后面再说
 		String beanName = id;
 		if (!StringUtils.hasText(beanName) && !aliases.isEmpty()) {
 			beanName = aliases.remove(0);
@@ -433,16 +439,19 @@ public class BeanDefinitionParserDelegate {
 		if (containingBean == null) {
 			checkNameUniqueness(beanName, aliases, ele);
 		}
-
+		// 到这里，整个 <bean /> 标签就算解析结束了，一个 BeanDefinition 就形成了。
 		AbstractBeanDefinition beanDefinition = parseBeanDefinitionElement(ele, beanName, containingBean);
 		if (beanDefinition != null) {
 			if (!StringUtils.hasText(beanName)) {
 				try {
-					if (containingBean != null) {
+					if (containingBean != null) {// 按照我们的思路，这里 containingBean 是 null 的
 						beanName = BeanDefinitionReaderUtils.generateBeanName(
 								beanDefinition, this.readerContext.getRegistry(), true);
 					}
 					else {
+						// 如果我们不定义 id 和 name，那么我们引言里的那个例子：
+						//   1. beanName 为：com.javadoop.example.MessageServiceImpl#0
+						//   2. beanClassName 为：com.javadoop.example.MessageServiceImpl
 						beanName = this.readerContext.generateBeanName(beanDefinition);
 						// Register an alias for the plain bean class name, if still possible,
 						// if the generator returned the class name plus a suffix.
@@ -451,7 +460,7 @@ public class BeanDefinitionParserDelegate {
 						if (beanClassName != null &&
 								beanName.startsWith(beanClassName) && beanName.length() > beanClassName.length() &&
 								!this.readerContext.getRegistry().isBeanNameInUse(beanClassName)) {
-							aliases.add(beanClassName);
+							aliases.add(beanClassName);// 把 beanClassName 设置为 Bean 的别名
 						}
 					}
 					if (logger.isTraceEnabled()) {
@@ -465,6 +474,7 @@ public class BeanDefinitionParserDelegate {
 				}
 			}
 			String[] aliasesArray = StringUtils.toStringArray(aliases);
+			// 返回 BeanDefinitionHolde
 			return new BeanDefinitionHolder(beanDefinition, beanName, aliasesArray);
 		}
 
@@ -512,17 +522,28 @@ public class BeanDefinitionParserDelegate {
 		}
 
 		try {
+			// 创建 BeanDefinition，然后设置类信息而已，很简单，就不贴代码了
 			AbstractBeanDefinition bd = createBeanDefinition(className, parent);
-
+			// 设置 BeanDefinition 的一堆属性，这些属性定义在 AbstractBeanDefinition 中
 			parseBeanDefinitionAttributes(ele, beanName, containingBean, bd);
 			bd.setDescription(DomUtils.getChildElementValueByTagName(ele, DESCRIPTION_ELEMENT));
 
-			parseMetaElements(ele, bd);
-			parseLookupOverrideSubElements(ele, bd.getMethodOverrides());
-			parseReplacedMethodSubElements(ele, bd.getMethodOverrides());
+			/**
+			 * 下面的一堆是解析 <bean>......</bean> 内部的子元素，
+			 * 解析出来以后的信息都放到 bd 的属性中
+			 */
 
+			// 解析 <meta />
+			parseMetaElements(ele, bd);
+			// 解析 <lookup-method />
+			parseLookupOverrideSubElements(ele, bd.getMethodOverrides());
+			// 解析 <replaced-method />
+			parseReplacedMethodSubElements(ele, bd.getMethodOverrides());
+			// 解析 <constructor-arg />
 			parseConstructorArgElements(ele, bd);
+			// 解析 <property />
 			parsePropertyElements(ele, bd);
+			// 解析 <qualifier />
 			parseQualifierElements(ele, bd);
 
 			bd.setResource(this.readerContext.getResource());
