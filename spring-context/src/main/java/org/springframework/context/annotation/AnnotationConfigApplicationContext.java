@@ -51,6 +51,16 @@ import org.springframework.util.Assert;
  * @see ClassPathBeanDefinitionScanner
  * @see org.springframework.context.support.GenericXmlApplicationContext
  */
+
+
+/*
+* AnnotationConfigApplicationContext 有父类先执行父类的
+* 父类创建了一个
+*
+* 	this.beanFactory = new DefaultListableBeanFactory();
+*
+*
+* */
 public class AnnotationConfigApplicationContext extends GenericApplicationContext implements AnnotationConfigRegistry {
 
 	private final AnnotatedBeanDefinitionReader reader;
@@ -63,6 +73,16 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 * through {@link #register} calls and then manually {@linkplain #refresh refreshed}.
 	 */
 	public AnnotationConfigApplicationContext() {
+		/*
+		 * AnnotationConfigApplicationContext 有父类先执行父类的无参构造器
+		 * */
+
+		/**
+		 *
+		 * 第一个： 基于 注解方式 this.reader = new AnnotatedBeanDefinitionReader(this);
+		 *
+		 * 第二个： xml扫包方式 this.scanner = new ClassPathBeanDefinitionScanner(this);
+		 */
 		this.reader = new AnnotatedBeanDefinitionReader(this);
 		this.scanner = new ClassPathBeanDefinitionScanner(this);
 	}
@@ -82,6 +102,13 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 * from the given component classes and automatically refreshing the context.
 	 * @param componentClasses one or more component classes &mdash; for example,
 	 * {@link Configuration @Configuration} classes
+	 */
+
+	/**
+	 * 由于AnnotationConfigApplicationContext是GenericApplicationContext的子类，
+	 * 在调用它的构造器之前会先调用父类的构造器，父类构造器会实例化一个DefaultListableBeanFactory实例，
+	 * 这个就是基于注解配置的应用上下文的IoC容器。SpringBoot默认调用第一个无参数构造器
+	 * @param componentClasses
 	 */
 	public AnnotationConfigApplicationContext(Class<?>... componentClasses) {
 		this();
@@ -159,7 +186,8 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	@Override
 	public void register(Class<?>... componentClasses) {
 		Assert.notEmpty(componentClasses, "At least one component class must be specified");
-		this.reader.register(componentClasses);
+		this.reader.register(componentClasses);//AnnotatedBeanDefinitionReader reader 放入注解类注解的方式来 实例化bean
+												//也可以通过传入所想要扫描包的字符串来进行实例化bean
 	}
 
 	/**

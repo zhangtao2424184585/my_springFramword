@@ -711,6 +711,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @see #getBeanFactory()
 	 */
 	protected ConfigurableListableBeanFactory obtainFreshBeanFactory() {
+		//创建一个 beanFactory 对象
+		//bean配置文件加载和解析工作已经完成,这里只是简单的验证一下非空,如果非空则返回已加载完毕的值
 		refreshBeanFactory();
 		return getBeanFactory();
 	}
@@ -1506,6 +1508,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @throws IllegalStateException if already initialized and multiple refresh
 	 *                               attempts are not supported
 	 */
+	//AbstractRefreshableApplicationContext
 	protected abstract void refreshBeanFactory() throws BeansException, IllegalStateException;
 
 	/**

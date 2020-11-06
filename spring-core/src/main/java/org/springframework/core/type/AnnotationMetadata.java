@@ -38,6 +38,8 @@ import org.springframework.core.annotation.MergedAnnotations.SearchStrategy;
  * @see org.springframework.core.type.classreading.MetadataReader#getAnnotationMetadata()
  * @see AnnotatedTypeMetadata
  */
+
+//元注解：相当于父类，某些注解是在元注解的基础上扩展出来的，典型的元注解是@Component，@Service、@Controller扩展了@Component注解
 public interface AnnotationMetadata extends ClassMetadata, AnnotatedTypeMetadata {
 
 	/**
@@ -45,6 +47,7 @@ public interface AnnotationMetadata extends ClassMetadata, AnnotatedTypeMetadata
 	 * are <em>present</em> on the underlying class.
 	 * @return the annotation type names
 	 */
+	// 返回注解的类全限定名
 	default Set<String> getAnnotationTypes() {
 		return getAnnotations().stream()
 				.filter(MergedAnnotation::isDirectlyPresent)
@@ -59,6 +62,7 @@ public interface AnnotationMetadata extends ClassMetadata, AnnotatedTypeMetadata
 	 * type to look for
 	 * @return the meta-annotation type names, or an empty set if none found
 	 */
+	// 获得annottationName对应的元注解的类全限定名
 	default Set<String> getMetaAnnotationTypes(String annotationName) {
 		MergedAnnotation<?> annotation = getAnnotations().get(annotationName, MergedAnnotation::isDirectlyPresent);
 		if (!annotation.isPresent()) {
@@ -76,6 +80,8 @@ public interface AnnotationMetadata extends ClassMetadata, AnnotatedTypeMetadata
 	 * type to look for
 	 * @return {@code true} if a matching annotation is present
 	 */
+
+	//确定是否含有某个注解
 	default boolean hasAnnotation(String annotationName) {
 		return getAnnotations().isDirectlyPresent(annotationName);
 	}
@@ -87,6 +93,7 @@ public interface AnnotationMetadata extends ClassMetadata, AnnotatedTypeMetadata
 	 * meta-annotation type to look for
 	 * @return {@code true} if a matching meta-annotation is present
 	 */
+	//确定是否含有某个元注解
 	default boolean hasMetaAnnotation(String metaAnnotationName) {
 		return getAnnotations().get(metaAnnotationName,
 				MergedAnnotation::isMetaPresent).isPresent();
@@ -98,6 +105,7 @@ public interface AnnotationMetadata extends ClassMetadata, AnnotatedTypeMetadata
 	 * @param annotationName the fully qualified class name of the annotation
 	 * type to look for
 	 */
+	//确定类的方法是否含有某个注解
 	default boolean hasAnnotatedMethods(String annotationName) {
 		return !getAnnotatedMethods(annotationName).isEmpty();
 	}
@@ -113,6 +121,7 @@ public interface AnnotationMetadata extends ClassMetadata, AnnotatedTypeMetadata
 	 * annotation. The return value will be an empty set if no methods match
 	 * the annotation type.
 	 */
+	//返回类中所有被注解注释的方法
 	Set<MethodMetadata> getAnnotatedMethods(String annotationName);
 
 

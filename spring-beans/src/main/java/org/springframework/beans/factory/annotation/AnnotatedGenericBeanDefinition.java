@@ -42,9 +42,9 @@ import org.springframework.util.Assert;
  */
 @SuppressWarnings("serial")
 public class AnnotatedGenericBeanDefinition extends GenericBeanDefinition implements AnnotatedBeanDefinition {
-
+// 通过这个接口，可以得知类含有的注释
 	private final AnnotationMetadata metadata;
-
+	//存储工厂方法的元数据，这个接口的具体操作请看下文
 	@Nullable
 	private MethodMetadata factoryMethodMetadata;
 

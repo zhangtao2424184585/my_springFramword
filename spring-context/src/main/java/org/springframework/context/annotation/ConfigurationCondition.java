@@ -32,11 +32,19 @@ public interface ConfigurationCondition extends Condition {
 	/**
 	 * Return the {@link ConfigurationPhase} in which the condition should be evaluated.
 	 */
+
+	/**
+	 * 与@Configuration一起使用时提供更精细控制的条件，允许某些Condition在匹配时根据配置阶段进行调整
+	 */
 	ConfigurationPhase getConfigurationPhase();
 
 
 	/**
 	 * The various configuration phases where the condition could be evaluated.
+	 */
+
+	/**
+	 * 可以判断Condition的不同配置阶段
 	 */
 	enum ConfigurationPhase {
 
@@ -45,6 +53,11 @@ public interface ConfigurationCondition extends Condition {
 		 * class is being parsed.
 		 * <p>If the condition does not match at this point, the {@code @Configuration}
 		 * class will not be added.
+		 */
+
+		/**
+		 * @Configuration注解的类解析的阶段判断Condition
+		 * 如果Condition不匹配，则@Configuration注解的类不会加载
 		 */
 		PARSE_CONFIGURATION,
 
@@ -55,6 +68,11 @@ public interface ConfigurationCondition extends Condition {
 		 * <p>At the time that the condition is evaluated, all {@code @Configuration}s
 		 * will have been parsed.
 		 */
+		/**
+		 * @Configuration注解的类实例化为bean的阶段判断Condition
+		 * 无论Condition是否匹配，@Configuration注解的类都会加载，且类加载先于Condition判断
+		 */
+
 		REGISTER_BEAN
 	}
 
