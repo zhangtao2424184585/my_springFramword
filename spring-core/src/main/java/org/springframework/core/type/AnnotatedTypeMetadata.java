@@ -62,6 +62,8 @@ public interface AnnotatedTypeMetadata {
 	 * type to look for
 	 * @return whether a matching annotation is defined
 	 */
+	// 此元素是否标注有此注解~~~~
+	// annotationName：注解全类名
 	default boolean isAnnotated(String annotationName) {
 		return getAnnotations().isPresent(annotationName);
 	}
@@ -76,6 +78,11 @@ public interface AnnotatedTypeMetadata {
 	 * and the defined attribute value as Map value. This return value will be
 	 * {@code null} if no matching annotation is defined.
 	 */
+	// 这个就厉害了：取得指定类型注解的所有的属性 - 值（k-v）
+	// annotationName：注解全类名
+	// classValuesAsString：若是true表示 Class用它的字符串的全类名来表示。这样可以避免Class被提前加载
+
+	// 参见这个方法的含义：AnnotatedElementUtils.getAllAnnotationAttributes
 	@Nullable
 	default Map<String, Object> getAnnotationAttributes(String annotationName) {
 		return getAnnotationAttributes(annotationName, false);

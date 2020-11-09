@@ -78,13 +78,21 @@ class ConditionEvaluator {
 	 * @return if the item should be skipped
 	 */
 	public boolean shouldSkip(@Nullable AnnotatedTypeMetadata metadata, @Nullable ConfigurationPhase phase) {
+		//如果metadata为空，或者没有Conditional(条件注解)这个注解就不用跳过。
 		if (metadata == null || !metadata.isAnnotated(Conditional.class.getName())) {
 			return false;
 		}
 
 		if (phase == null) {
+			/**
+			 * ConfigurationClassUtils类是用于ConfigurationClass配置类的实用程序，是一个抽象类，只可以在框架内部使用；
+			 * 如果bean定义是一个被@Configuration标注的JavaConfig配置类（且proxyBeanMethods为false），则bean定义属性设置为full标记;
+			 * 如果bean定义被@Component、@ComponentScan、@Import、@ImportResource注解标注或者方法被@Bean标注，则bean定义属性设置为lite。
+			 * 如果bean定义被设置了full或者lite属性，则如果存在设置bean定义的order属性
+			 */
 			if (metadata instanceof AnnotationMetadata &&
 					ConfigurationClassUtils.isConfigurationCandidate((AnnotationMetadata) metadata)) {
+				//ConfigurationPhase.PARSE_CONFIGURATION 如果Condition不匹配，则@Configuration注解的类不会加载
 				return shouldSkip(metadata, ConfigurationPhase.PARSE_CONFIGURATION);
 			}
 			return shouldSkip(metadata, ConfigurationPhase.REGISTER_BEAN);
@@ -104,7 +112,7 @@ class ConditionEvaluator {
 			ConfigurationPhase requiredPhase = null;
 			if (condition instanceof ConfigurationCondition) {
 				requiredPhase = ((ConfigurationCondition) condition).getConfigurationPhase();
-			}
+		}
 			if ((requiredPhase == null || requiredPhase == phase) && !condition.matches(this.context, metadata)) {
 				return true;
 			}

@@ -33,17 +33,20 @@ public interface ClassMetadata {
 	/**
 	 * Return the name of the underlying class.
 	 */
+	// 返回类名（注意返回的是最原始的那个className）
 	String getClassName();
 
 	/**
 	 * Return whether the underlying class represents an interface.
 	 */
+
 	boolean isInterface();
 
 	/**
 	 * Return whether the underlying class represents an annotation.
 	 * @since 4.1
 	 */
+	// 是否是注解
 	boolean isAnnotation();
 
 	/**
@@ -55,6 +58,7 @@ public interface ClassMetadata {
 	 * Return whether the underlying class represents a concrete class,
 	 * i.e. neither an interface nor an abstract class.
 	 */
+	// 是否允许创建  不是接口且不是抽象类  这里就返回true了
 	default boolean isConcrete() {
 		return !(isInterface() || isAbstract());
 	}
@@ -69,6 +73,7 @@ public interface ClassMetadata {
 	 * it is a top-level class or a nested class (static inner class) that
 	 * can be constructed independently from an enclosing class.
 	 */
+	// 是否是独立的(能够创建对象的)  比如是Class、或者内部类、静态内部类
 	boolean isIndependent();
 
 	/**
@@ -78,6 +83,7 @@ public interface ClassMetadata {
 	 * <p>If this method returns {@code false}, then the underlying
 	 * class is a top-level class.
 	 */
+	// 是否有内部类之类的东东
 	default boolean hasEnclosingClass() {
 		return (getEnclosingClassName() != null);
 	}
@@ -86,12 +92,14 @@ public interface ClassMetadata {
 	 * Return the name of the enclosing class of the underlying class,
 	 * or {@code null} if the underlying class is a top-level class.
 	 */
+	// 会把实现的所有接口名称都返回  具体依赖于Class#getSuperclass
 	@Nullable
 	String getEnclosingClassName();
 
 	/**
 	 * Return whether the underlying class has a super class.
 	 */
+	// 基于：Class#getDeclaredClasses  返回类中定义的公共、私有、保护的内部类
 	default boolean hasSuperClass() {
 		return (getSuperClassName() != null);
 	}

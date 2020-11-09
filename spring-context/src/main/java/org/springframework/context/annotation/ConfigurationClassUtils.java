@@ -49,14 +49,14 @@ import org.springframework.stereotype.Component;
  * @since 3.1
  */
 abstract class ConfigurationClassUtils {
-
+	//configuration class如果是@Configuration注解标注的类属性标注为full
 	public static final String CONFIGURATION_CLASS_FULL = "full";
-
+	//非@Configuration注解标注的类（@Component、@Import等注解标注）属性标注为lite
 	public static final String CONFIGURATION_CLASS_LITE = "lite";
-
+	//即值：org.springframework.context.annotation.ConfigurationClassPostProcessor.configurationClass作为属性配置类型标记属性的key
 	public static final String CONFIGURATION_CLASS_ATTRIBUTE =
 			Conventions.getQualifiedAttributeName(ConfigurationClassPostProcessor.class, "configurationClass");
-
+//即值：org.springframework.context.annotation.ConfigurationClassPostProcessor.order配置属性配置类排序的属性key
 	private static final String ORDER_ATTRIBUTE =
 			Conventions.getQualifiedAttributeName(ConfigurationClassPostProcessor.class, "order");
 
@@ -81,6 +81,7 @@ abstract class ConfigurationClassUtils {
 	 * @param metadataReaderFactory the current factory in use by the caller
 	 * @return whether the candidate qualifies as (any kind of) configuration class
 	 */
+	//检查给定的bean定义是否是配置类（或在configuration/component类中声明的嵌套组件类，也要自动注册）的候选项，并相应地标记它。
 	public static boolean checkConfigurationClassCandidate(
 			BeanDefinition beanDef, MetadataReaderFactory metadataReaderFactory) {
 
@@ -148,13 +149,18 @@ abstract class ConfigurationClassUtils {
 	 * @return {@code true} if the given class is to be registered for
 	 * configuration class processing; {@code false} otherwise
 	 */
+
+	//isConfigurationCandidate检查给定的元数据，以查找给定的候选配置类是否被指定的注解标注
+
 	public static boolean isConfigurationCandidate(AnnotationMetadata metadata) {
 		// Do not consider an interface or an annotation...
+		//不考虑接口或注解
 		if (metadata.isInterface()) {
 			return false;
 		}
 
 		// Any of the typical annotations found?
+		// 检查是否被注解@Component、@ComponentScan、@Import、@ImportResource标注
 		for (String indicator : candidateIndicators) {
 			if (metadata.isAnnotated(indicator)) {
 				return true;
@@ -162,6 +168,7 @@ abstract class ConfigurationClassUtils {
 		}
 
 		// Finally, let's look for @Bean methods...
+		// 最后检查是否有@Bean标注的方法
 		try {
 			return metadata.hasAnnotatedMethods(Bean.class.getName());
 		}

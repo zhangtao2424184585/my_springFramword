@@ -257,6 +257,14 @@ public class AnnotatedBeanDefinitionReader {
 		//将Bean配置类信息转成容器中AnnotatedGenericBeanDefinition数据结构,
 		//AnnotatedGenericBeanDefinition继承自BeanDefinition作用是定义一个bean的数据结构，下面的
 		//getMetadata可以获取到该bean上的注解信息
+
+		//AnnotatedGenericBeanDefinition：存储@Configuration注解注释的类
+		//ScannedGenericBeanDefinition：存储@Component、@Service、@Controller等注解注释的类
+
+
+		//spring初始化时，会用GenericBeanDefinition或是ConfigurationClassBeanDefinition（用@Bean注解注释的类）存储用户自定义的Bean，
+		// 在初始化Bean时，又会将其转换为RootBeanDefinition
+
 		AnnotatedGenericBeanDefinition abd = new AnnotatedGenericBeanDefinition(beanClass);
 		//@Conditional装配条件判断是否需要跳过注册
 		if (this.conditionEvaluator.shouldSkip(abd.getMetadata())) {
