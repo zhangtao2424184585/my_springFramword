@@ -573,8 +573,12 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			// 注册也只是将这些信息都保存到了注册中心(说到底核心是一个 beanName-> beanDefinition 的 map)
 			// Tell the subclass to refresh the internal bean factory.
 
-
-			//注解的方式跟xml的方式不一样
+			/**
+			 * 	注解的方式跟xml的方式不一样
+			 * 	xml的方式这里所有的信息都被注册
+			 * 	注解的方式还没
+			 *
+			 */
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 
