@@ -563,7 +563,6 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 
 
-	//woshi tets
 	@Override
 	public void refresh() throws BeansException, IllegalStateException {
 		synchronized (this.startupShutdownMonitor) {
@@ -604,6 +603,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 				// 调用 BeanFactoryPostProcessor 各个实现类的 postProcessBeanFactory(factory) 方法
 				// Invoke factory processors registered as beans in the context.
+				//本方法会实例化和调用所有 BeanFactoryPostProcessor（包括其子类 BeanDefinitionRegistryPostProcessor）。
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// 注册 BeanPostProcessor 的实现类，注意看和 BeanFactoryPostProcessor 的区别

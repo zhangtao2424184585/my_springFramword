@@ -489,17 +489,32 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		return getBeanNamesForType(type, true, true);
 	}
 
+
+	//方法签名
+	//第一个参数type表示要查找的bean的类型
+	//includeNonSingletons 是否考虑非单例bean
+	//allowEagerInit 是否允许提早初始化
+
+	//具体的实现代码，我们从DefaultListableBeanFactory中分析
 	@Override
 	public String[] getBeanNamesForType(@Nullable Class<?> type, boolean includeNonSingletons, boolean allowEagerInit) {
+		//配置还未被冻结或者类型为null或者不允许早期初始化
 		if (!isConfigurationFrozen() || type == null || !allowEagerInit) {
 			return doGetBeanNamesForType(ResolvableType.forRawClass(type), includeNonSingletons, allowEagerInit);
 		}
+		//值得注意的是，不管type是否不为空，allowEagerInit是否为true
+		//只要isConfigurationFrozen()为false就一定不会走这里
+		//因为isConfigurationFrozen()为false的时候表示BeanDefinition
+		//可能还会发生更改和添加，所以不能进行缓存
+		//如果允许非单例的bean，那么从保存所有bean的集合中获取，否则从
+		//单例bean中获取
 		Map<Class<?>, String[]> cache =
 				(includeNonSingletons ? this.allBeanNamesByType : this.singletonBeanNamesByType);
 		String[] resolvedBeanNames = cache.get(type);
 		if (resolvedBeanNames != null) {
 			return resolvedBeanNames;
 		}
+		//如果缓存中没有获取到，那么只能重新获取，获取到之后就存入缓存
 		resolvedBeanNames = doGetBeanNamesForType(ResolvableType.forRawClass(type), includeNonSingletons, true);
 		if (ClassUtils.isCacheSafe(type, getBeanClassLoader())) {
 			cache.put(type, resolvedBeanNames);
@@ -507,22 +522,39 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		return resolvedBeanNames;
 	}
 
+	//DefaultListableBeanFactory
 	private String[] doGetBeanNamesForType(ResolvableType type, boolean includeNonSingletons, boolean allowEagerInit) {
 		List<String> result = new ArrayList<>();
 
 		// Check all bean definitions.
 		for (String beanName : this.beanDefinitionNames) {
 			// Only consider bean as eligible if the bean name is not defined as alias for some other bean.
+			//如果是别名，跳过（这个集合会保存所有的主beanName，并且不会
+			//保存别名，别名由BeanFactory中别名map维护，这里个人认为是一种防御性编程）
 			if (!isAlias(beanName)) {
 				try {
+					//获取合并的BeanDefinition，合并的BeanDefinition是指
+					//spring整合了父BeanDefinition的属性，将其他类型的
+					//BeanDefinition变成了RootBeanDefintion
 					RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
 					// Only check bean definition if it is complete.
+
+					//抽象的BeanDefinition是不做考虑，抽象的就是拿来继承的
+					//如果允许早期初始化，那么直接短路，进入方法体
+					//如果不允许早期初始化，那么需要进一步判断,如果是不允许早期初始化的，
+					//并且beanClass已经被加载或者它是可以早期初始化的，那么如果当前bean是工厂bean，并且指定的bean又是工厂
+					//那么这个bean就必须被早期初始化，也就是说就不符合我们制定的allowEagerInit为false的情况，直接跳过
 					if (!mbd.isAbstract() && (allowEagerInit ||
 							(mbd.hasBeanClass() || !mbd.isLazyInit() || isAllowEagerClassLoading()) &&
 									!requiresEagerInitForType(mbd.getFactoryBeanName()))) {
+						//如果当前bean是工厂bean
 						boolean isFactoryBean = isFactoryBean(beanName, mbd);
 						BeanDefinitionHolder dbd = mbd.getDecoratedDefinition();
 						boolean matchFound = false;
+						//如果允许早期初始化，那么基本上会调用最后的isTypeMatch方法
+						//这个方法会导致工厂的实例化，但是当前不允许进行早期实例化
+						//在不允许早期实例化的情况下，如果当前bean是工厂bean，那么它只能在已经被创建的情况下调用isTypeMatch进行匹配判断
+						//否则只能宣告匹配失败，返回false
 						boolean allowFactoryBeanInit = (allowEagerInit || containsSingleton(beanName));
 						boolean isNonLazyDecorated = (dbd != null && !mbd.isLazyInit());
 						if (!isFactoryBean) {
@@ -535,7 +567,9 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 									(allowFactoryBeanInit && isSingleton(beanName, mbd, dbd))) {
 								matchFound = isTypeMatch(beanName, type, allowFactoryBeanInit);
 							}
+							//如果没有匹配到并且它是个工厂bean，那么加上&前缀，表示我要获取FactoryBean类型的bean
 							if (!matchFound) {
+
 								// In case of FactoryBean, try to match FactoryBean instance itself next.
 								beanName = FACTORY_BEAN_PREFIX + beanName;
 								matchFound = isTypeMatch(beanName, type, allowFactoryBeanInit);
@@ -578,6 +612,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 					beanName = FACTORY_BEAN_PREFIX + beanName;
 				}
 				// Match raw bean instance (might be raw FactoryBean).
+				//如果没有匹配成功，那么匹配工厂类
 				if (isTypeMatch(beanName, type)) {
 					result.add(beanName);
 				}
