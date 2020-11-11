@@ -347,6 +347,7 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		else {
 			// Fail if we're already creating this bean instance:
 			// We're assumably within a circular reference.
+			//第一次拿对象进行判断是不是循环依赖 要是循环依赖就抛出异常并且Bean的类型是prototype的话就会抛出异常
 			if (isPrototypeCurrentlyInCreation(beanName)) {
 				// 当前线程已经创建过了此 beanName 的 prototype 类型的 bean，那么抛异常
 				throw new BeanCurrentlyInCreationException(beanName);
@@ -390,18 +391,36 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 
 
 			try {
+				//合并Bean的定义 <Bean id="" abstract="true"> 这个Bean是不能被实例化的
+				//若有个一个<Bean id = " parent=""> 的父标签中是上面的标签然后会 有下面的方法
 				RootBeanDefinition mbd = getMergedLocalBeanDefinition(beanName);
 				checkMergedBeanDefinition(mbd, beanName, args);
 
 				// Guarantee initialization of beans that the current bean depends on.
 				// 先初始化依赖的所有 Bean，这个很好理解。
 				// 注意，这里的依赖指的是 depends-on 中定义的依赖
+
+				/**
+				 * 	  @Bean
+				 *    @DependsOn("InstanceA")
+				 *    public InstanceB instanceB(){
+				 * 		return new InstanceB();
+				 *    }
+				 *    @Bean
+				 *    @DependsOn("InstanceB")
+				 *    public InstanceA instanceA(){
+				 * 		return new InstanceA();
+				 *    }
+				 */
+				//有 @DependsOn("InstanceB") 注解必须InstanceB对象先创建好才可以
+				//这里如果出现上面的循环依赖的话会抛出异常
 				String[] dependsOn = mbd.getDependsOn();
 				if (dependsOn != null) {
 					for (String dep : dependsOn) {
 						if (isDependent(beanName, dep)) {
 							// 检查是不是有循环依赖，这里的循环依赖和我们前面说的循环依赖又不一样，
 							// 这里肯定是不允许出现的，不然要乱套了，读者想一下就知道了
+							//这里不是我们面试问到的循环依赖问题
 							throw new BeanCreationException(mbd.getResourceDescription(), beanName,
 									"Circular depends-on relationship between '" + beanName + "' and '" + dep + "'");
 						}

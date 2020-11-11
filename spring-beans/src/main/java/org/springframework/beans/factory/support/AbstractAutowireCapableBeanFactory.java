@@ -569,6 +569,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			 * 经过AOP处理,将原生对象转换成Proxy
 			 * 返回BeanWrapper
 			 */
+
+			/**
+			 * 这里解决循环依赖问题
+			 */
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isTraceEnabled()) {
 				logger.trace("Finished creating instance of bean '" + beanName + "'");
