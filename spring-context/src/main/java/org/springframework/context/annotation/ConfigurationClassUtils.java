@@ -91,11 +91,22 @@ abstract class ConfigurationClassUtils {
 		}
 
 		AnnotationMetadata metadata;
+
+		/**
+		 * 1.通过注解注入的bd都是AnnotatedGenericBeanDefinition，实现了AnnotatedBeanDefinition
+		 * 2.spring内部的bd是RootBeanDefinition，实现了AbstractBeanDefinition
+		 *
+		 * 这里判断是不是带有主节点额bd
+		 */
 		if (beanDef instanceof AnnotatedBeanDefinition &&
 				className.equals(((AnnotatedBeanDefinition) beanDef).getMetadata().getClassName())) {
 			// Can reuse the pre-parsed metadata from the given BeanDefinition...
+			// 获取注解
 			metadata = ((AnnotatedBeanDefinition) beanDef).getMetadata();
 		}
+		/**
+		 * 判断是否spring默认的BeanDefinition
+		 */
 		else if (beanDef instanceof AbstractBeanDefinition && ((AbstractBeanDefinition) beanDef).hasBeanClass()) {
 			// Check already loaded Class if present...
 			// since we possibly can't even load the class file for this Class.
@@ -122,11 +133,33 @@ abstract class ConfigurationClassUtils {
 			}
 		}
 
+
 		Map<String, Object> config = metadata.getAnnotationAttributes(Configuration.class.getName());
+		/**
+		 * 判断当前BeanDefinition是否存在@Configuration注解
+		 *
+		 * 如果存在@Configuration,spring认为他是一个全注解类
+		 */
 		if (config != null && !Boolean.FALSE.equals(config.get("proxyBeanMethods"))) {
+			/**
+			 * 如果存在@Configuration注解,则为当前BeanDefinition设置configurationClass属性为full
+			 */
 			beanDef.setAttribute(CONFIGURATION_CLASS_ATTRIBUTE, CONFIGURATION_CLASS_FULL);
 		}
+		/**
+		 * 判断是否存在以下注解的bd
+		 * candidateIndicators.add(Component.class.getName());
+		 * candidateIndicators.add(ComponentScan.class.getName());
+		 * candidateIndicators.add(Import.class.getName());
+		 * candidateIndicators.add(ImportResource.class.getName());
+		 * 或者有方法带有@Bean的bd
+		 *
+		 * 如果存在spring认为他是一个部分解类
+		 */
 		else if (config != null || isConfigurationCandidate(metadata)) {
+			/**
+			 * 如果存在以上注解,则为当前BeanDefinition设置configurationClass属性为lite
+			 */
 			beanDef.setAttribute(CONFIGURATION_CLASS_ATTRIBUTE, CONFIGURATION_CLASS_LITE);
 		}
 		else {
