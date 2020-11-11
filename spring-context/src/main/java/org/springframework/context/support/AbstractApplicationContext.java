@@ -613,6 +613,30 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				// 此接口两个方法: postProcessBeforeInitialization 和 postProcessAfterInitialization
 				// 两个方法分别在 Bean 初始化之前和初始化之后得到执行。注意，到这里 Bean 还没初始化
 
+
+				/**
+				 *
+				 * invokeBeanFactoryPostProcessors 方法主要用于处理 BeanFactoryPostProcessor 接口，
+				 * 而 registerBeanPostProcessors 方法主要用于处理 BeanPostProcessor 接口。BeanFactoryPostProcessor
+				 * 和 BeanPostProcessor，相信大家很容易从命名看出来这两个接口“长得很像”。
+				 * BeanFactoryPostProcessor 是针对 BeanFactory 的扩展，主要用在 bean 实例化之前，
+				 * 读取 bean 的定义，并可以修改它。BeanPostProcessor 是针对 bean 的扩展，
+				 * 主要用在 bean 实例化之后，执行初始化方法前后，允许开发者对 bean 实例进行修改。
+				 *
+				 */
+
+				/**
+				 * 本方法会注册所有的 BeanPostProcessor，将所有实现了 BeanPostProcessor 接口的类加载到 BeanFactory 中。
+				 *
+				 * BeanPostProcessor 接口是 Spring 初始化 bean 时对外暴露的扩展点，
+				 * Spring IoC 容器允许 BeanPostProcessor 在容器初始化 bean 的前后，添加自己的逻辑处理。
+				 * 在 registerBeanPostProcessors 方法只是注册到 BeanFactory 中，具体调用是在 bean 初始化的时候。
+				 *
+				 * 具体的：在所有 bean 实例化时，执行初始化方法前会调用所有
+				 * BeanPostProcessor 的 postProcessBeforeInitialization 方法，
+				 * 在执行初始化方法后会调用所有 BeanPostProcessor 的 postProcessAfterInitialization 方法。
+				 */
+
 				// Register bean processors that intercept bean creation.
 				registerBeanPostProcessors(beanFactory);
 
@@ -624,6 +648,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 				// 初始化当前 ApplicationContext 的事件广播器，这里也不展开了
 				// Initialize event multicaster for this context.
+
+
 				initApplicationEventMulticaster();
 
 				// 从方法名就可以知道，典型的模板方法(钩子方法)，
@@ -837,6 +863,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * <p>Must be called before any instantiation of application beans.
 	 */
 	protected void registerBeanPostProcessors(ConfigurableListableBeanFactory beanFactory) {
+		// 1.注册BeanPostProcessor
 		PostProcessorRegistrationDelegate.registerBeanPostProcessors(beanFactory, this);
 	}
 
@@ -968,7 +995,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	// 初始化剩余的 singleton beans
 	protected void finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory) {
 		// Initialize conversion service for this context.
-		// 首先，初始化名字为 conversionService 的 Bean。本着送佛送到西的精神，我在附录中简单介绍了一下 ConversionService，因为这实在太实用了
+		// 首先，初始化名字为 conversionService 的 Bean。本着送佛送到西的精神，
+		// 我在附录中简单介绍了一下 ConversionService，因为这实在太实用了
 		// 什么，看代码这里没有初始化 Bean 啊！
 		// 注意了，初始化的动作包装在 beanFactory.getBean(...) 中，这里先不说细节，先往下看吧
 		if (beanFactory.containsBean(CONVERSION_SERVICE_BEAN_NAME) &&

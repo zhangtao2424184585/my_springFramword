@@ -240,6 +240,13 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 	 * Prepare the Configuration classes for servicing bean requests at runtime
 	 * by replacing them with CGLIB-enhanced subclasses.
 	 */
+
+	/**
+	 *
+	 * 该方法是对BeanFactory进行处理，用来干预BeanFactory的创建过程。主要干了两件事，
+	 * (1)对加了@Configuration注解的类进行CGLIB代理。
+	 * (2)向Spring中添加一个后置处理器ImportAwareBeanPostProcessor。
+	 */
 	@Override
 	public void postProcessBeanFactory(ConfigurableListableBeanFactory beanFactory) {
 		int factoryId = System.identityHashCode(beanFactory);
@@ -248,13 +255,26 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 					"postProcessBeanFactory already called on this post-processor against " + beanFactory);
 		}
 		this.factoriesPostProcessed.add(factoryId);
+		// 下面的if语句不会进入，因为在执行BeanFactoryPostProcessor时，
+		// 会先执行BeanDefinitionRegistryPostProcessor的postProcessorBeanDefinitionRegistry()方法
+		// 而在执行postProcessorBeanDefinitionRegistry方法时，
+		// 都会调用processConfigBeanDefinitions方法，这与postProcessorBeanFactory()方法的执行逻辑是一样的
+		// postProcessorBeanFactory()方法也会调用processConfigBeanDefinitions方法，
+		// 为了避免重复执行，所以在执行方法之前会先生成一个id，将id放入到一个set当中，每次执行之前
+		// 先判断id是否存在，所以在此处，永远不会进入到if语句中
 		if (!this.registriesPostProcessed.contains(factoryId)) {
 			// BeanDefinitionRegistryPostProcessor hook apparently not supported...
 			// Simply call processConfigurationClasses lazily at this point then.
+			// BeanDefinitionRegistryPostProcessor hook apparently not supported...
+
+			// Simply call processConfigurationClasses lazily at this point then.
+			// 该方法在这里不会被执行到
 			processConfigBeanDefinitions((BeanDefinitionRegistry) beanFactory);
 		}
 
+		// 对加了@Configuration注解的配置类进行Cglib代理
 		enhanceConfigurationClasses(beanFactory);
+		// 添加一个BeanPostProcessor后置处理器
 		beanFactory.addBeanPostProcessor(new ImportAwareBeanPostProcessor(beanFactory));
 	}
 
@@ -383,8 +403,13 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 
 
 			// 将上一步parser解析出的ConfigurationClass类加载成BeanDefinition
-			// 实际上经过上一步的parse()后，解析出来的bean已经放入到BeanDefinition中了，但是由于这些bean可能会引入新的bean，例如实现了ImportBeanDefinitionRegistrar或者ImportSelector接口的bean，或者bean中存在被@Bean注解的方法
-			// 因此需要执行一次loadBeanDefinition()，这样就会执行ImportBeanDefinitionRegistrar或者ImportSelector接口的方法或者@Bean注释的方法
+			// 实际上经过上一步的parse()后，解析出来的bean已经放入到BeanDefinition中了，
+			// 但是由于这些bean可能会引入新的bean，例如实现了ImportBeanDefinitionRegistrar或者ImportSelector接口的bean，
+			// 或者bean中存在被@Bean注解的方法
+			// 因此需要执行一次loadBeanDefinition()，
+			// 这样就会执行ImportBeanDefinitionRegistrar或者ImportSelector接口的方法或者@Bean注释的方法
+
+			//该方法实际上是将通过@Import、@Bean等注解方式注册的类解析成BeanDefinition，然后注册到BeanDefinitionMap中。
 			this.reader.loadBeanDefinitions(configClasses);
 			this.reader.loadBeanDefinitions(configClasses);
 			alreadyParsed.addAll(configClasses);
@@ -487,6 +512,15 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			beanDef.setAttribute(AutoProxyUtils.PRESERVE_TARGET_CLASS_ATTRIBUTE, Boolean.TRUE);
 			// Set enhanced subclass of the user-specified bean class
 			Class<?> configClass = beanDef.getBeanClass();
+
+
+
+
+			// 调用ConfigurationClassEnhancer.enhance()方法创建增强类
+
+
+
+
 			Class<?> enhancedClass = enhancer.enhance(configClass, this.beanClassLoader);
 			if (configClass != enhancedClass) {
 				if (logger.isTraceEnabled()) {

@@ -223,6 +223,52 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 	//---------------------------------------------------------------------
 
 	// AbstractBeanFactory 196
+
+
+	/**
+	 * 下面接着跟进getBean(beanName);方法,顾名思义获取Bean,
+	 * 再往下跟下去,就算是本文的正文开始部分了,但是我想在这里提醒自己,
+	 * 一个比较有分量的剧透吧,当前的getBean(beanName)它是有返回值的,
+	 * 一会当我们往下跟进的是时候会发现会存在递归的现象,
+	 * 这一点巧妙的实现了@Autowired处理setter方式实现循环引用
+	 *
+	 *
+	 * ok,现在继续看代码,经过了几个空方法的传递,我们来到下面的代码中,它主要做了如下几件事
+	 *
+	 * 首先将传递进来的name转换成了beanName
+	 *
+	 * 原因1: FactoryBean的实现类的存储方式和其他的类完全相同,添加上&是获取不到的, 因此我们将&去掉 原因2: 解决别名的问题
+	 *
+	 * 为什么在创建bean之前先调用getSingleton()?
+	 *
+	 * 回想一下,现在是Spring启动的过程中,是在准备实例化bean,为什么一开始就来getSingleton(),
+	 *
+	 * 跟进源码查看这个方法,它最终实现中有一行代码是这样的Object singletonObject = this.singletonObjects.get(beanName);
+	 *
+	 * 而这个singletonObjects就是微观层面的IOC容器,循环创建刚开始时,IOC确实是空的,但是我前面存在剧透,
+	 *
+	 * 一开始的getBean()方法是存在递归调用现象的,直接举2个例子: 第一:假如现在在实例化A,结果有发现需要给A注入B,
+	 *
+	 * 那Spring是不是得获得B,怎么获得呢? 递归使用getBean(BName)完成, 第二个例子: A被添加上了@Lazy注解,是懒加载的,
+	 *
+	 * 但是终究有一个会通过getBean(AName)获取A,这是发现A是实例化需要B,B肯定已经实例化完事了,同样是通过递归getBean(BName)实现注入,
+	 *
+	 * 在这两个过程中就是getSingleton()保证不会重复创建已经存在的实例
+	 *
+	 * 我们关注的重点其实是第二个getSingleton(beanName()->{xxx})
+	 *
+	 * 在第二个getSingleton()方法中才是真正的去实例化bean的方法
+	 *
+	 * 最后,在当前的方法最后将bean返回了
+	 *
+	 * 前面我就是说过了,getBean(beanName)存在递归调用的情况,为什么我会一直说这个事呢,
+	 *
+	 * 因为如果不知道这个事的话,这些代码看起来是没有头绪的,但是明白这个事,看代码就变得很有逻辑,
+	 *
+	 * 我在简单总结一下怎个玩这个递归呢? 假设现在通过getBean(AName)来注入A对象,但是呢发现了A依赖B对象,
+	 *
+	 * 于是在getBean(AName)里面调用getBean(BName),通过这个方法返回出B对象完成A的注入
+	 */
 	@Override
 	public Object getBean(String name) throws BeansException {
 		return doGetBean(name, null, null, false);
@@ -272,6 +318,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			throws BeansException {
 		// 获取一个 “正统的” beanName，处理两种情况，一个是前面说的 FactoryBean(前面带 ‘&’)，
 		// 一个是别名问题，因为这个方法是 getBean，获取 Bean 用的，你要是传一个别名进来，是完全可以的
+
+		// 将传递进来的name
 		String beanName = transformedBeanName(name);
 		// 注意跟着这个，这个是返回值
 		Object bean;
@@ -293,7 +341,6 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 			}
 			// 下面这个方法：如果是普通 Bean 的话，直接返回 sharedInstance，
 			// 如果是 FactoryBean 的话，返回它创建的那个实例对象
-			// (FactoryBean 知识，读者若不清楚请移步附录)
 			bean = getObjectForBeanInstance(sharedInstance, name, beanName, null);
 		}
 
@@ -353,7 +400,8 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 				if (dependsOn != null) {
 					for (String dep : dependsOn) {
 						if (isDependent(beanName, dep)) {
-							// 检查是不是有循环依赖，这里的循环依赖和我们前面说的循环依赖又不一样，这里肯定是不允许出现的，不然要乱套了，读者想一下就知道了
+							// 检查是不是有循环依赖，这里的循环依赖和我们前面说的循环依赖又不一样，
+							// 这里肯定是不允许出现的，不然要乱套了，读者想一下就知道了
 							throw new BeanCreationException(mbd.getResourceDescription(), beanName,
 									"Circular depends-on relationship between '" + beanName + "' and '" + dep + "'");
 						}
@@ -377,6 +425,16 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 						try {
 							// 执行创建 Bean，详情后面再说
 							return createBean(beanName, mbd, args);
+
+							/**
+							 * 经过了上面一顿扯,然后我们继续往下跟,
+							 * 看看createBean(beanName, mbd, args)方法中是如何实例化我们的Bean的,
+							 * 上面的方法是在AbstractBeanFactory中,
+							 * createBean(beanName, mbd, args)是它的抽象方法, 那实现类是哪个呢?
+							 *
+							 * AbstractAutowireCapableBeanFactory,隆重的夸一下这个类,
+							 * Spring都称赞这个类是有有才华的
+							 */
 						}
 						catch (BeansException ex) {
 							// Explicitly remove instance from singleton cache: It might have been put there
@@ -981,16 +1039,30 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 		return result;
 	}
 
+	/**
+	 *
+	 * 该方法作用就是将 BeanPostProcessor 添加到 beanPostProcessors 缓存，
+	 * 这边的先移除再添加，主要是起一个排序的作用。
+	 * 而 hasInstantiationAwareBeanPostProcessors 和 hasDestructionAwareBeanPostProcessors
+	 * 变量用于指示 beanFactory 是否已注册过 InstantiationAwareBeanPostProcessors
+	 * 和 DestructionAwareBeanPostProcessor，在之后的 IoC 创建过程会用到这两个变量，这边先有个印象。
+	 */
 	@Override
 	public void addBeanPostProcessor(BeanPostProcessor beanPostProcessor) {
 		Assert.notNull(beanPostProcessor, "BeanPostProcessor must not be null");
 		// Remove from old position, if any
+		// 1.如果beanPostProcessor已经存在则移除（可以起到排序的效果，beanPostProcessor可能本来在前面，移除再添加，则变到最后面）
 		this.beanPostProcessors.remove(beanPostProcessor);
 		// Track whether it is instantiation/destruction aware
+		// 2.将beanPostProcessor添加到beanPostProcessors缓存
 		if (beanPostProcessor instanceof InstantiationAwareBeanPostProcessor) {
+			// 3.如果beanPostProcessor是InstantiationAwareBeanPostProcessor, 则将hasInstantiationAwareBeanPostProcessors设置为true,
+			// 该变量用于指示beanFactory是否已注册过InstantiationAwareBeanPostProcessors
 			this.hasInstantiationAwareBeanPostProcessors = true;
 		}
 		if (beanPostProcessor instanceof DestructionAwareBeanPostProcessor) {
+			// 4.如果beanPostProcessor是DestructionAwareBeanPostProcessor, 则将hasInstantiationAwareBeanPostProcessors设置为true,
+			// 该变量用于指示beanFactory是否已注册过DestructionAwareBeanPostProcessor
 			this.hasDestructionAwareBeanPostProcessors = true;
 		}
 		// Add to end of list

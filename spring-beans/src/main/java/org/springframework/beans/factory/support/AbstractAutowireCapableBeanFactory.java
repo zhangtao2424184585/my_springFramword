@@ -473,6 +473,35 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * populates the bean instance, applies post-processors, etc.
 	 * @see #doCreateBean
 	 */
+
+
+	/**
+	 *
+	 * 在这个方法中,主要做了两件事:两件大事!!!
+	 *
+	 * 第一件大事:
+	 *
+	 * 在实例化Bean前,第一次调用后置处理器, 这件大事绝对是有历史意义的!!!为啥呢?大家想想,
+	 * bean还没有创建呢!就已经可以插手bean的创建过程了,不是很刺激吗?接着看回调了什么后置处理器呢?
+	 * Spring会循环所有的处理器检查当前被遍历的处理器是否是InstantiationAwareBeanPostProcessor类型的,
+	 * 如果是的话呢,就执行这个后置处理器的postProcessBeforeInstantiation(beanClass, beanName);方法
+	 *
+	 * 这个postProcessBeforeInstantiation()是允许有返回值的,大家可以想想,这一点是不是有点可怕?
+	 * 事实也是这样,后置处理器的目的是为了增强对象,而我们却可以在这里返回一个任何东西,狸猫换台子替换掉原始的,
+	 * 还没有被创建的对象,还有一点,就是一旦我们在这里真的是没有返回null,那后续Spring就没有义务在去为我们创建本来应该创建的对象了,
+	 * 代码通过if-else的选择分支会使得当前的对象不再经历其他后置处理器的增强,最终执行它父类的postProcessorAfterInitialization()
+	 *
+	 * 补充一点,我们通过@EnableAspectjAutoProxy
+	 * 添加到Spring上下文中的AnnotationAwareAspectjAutoProxyCreator对象其实就是这个类型InstantiationAwareBeanPostProcessor,
+	 * 也就是说在这里这个接口的相关方法会被回调,下面看看他的实现类AbstractAutoProxyCreator对这个before()方法的重写实现,源码如下:
+	 *
+	 * 主要逻辑就是找出需要产生代理增强的bean(切面类),和普通的bean,
+	 * 需要增强的bean放在advisedBeans里面,因为需要增强的bean是需要动态植入其他逻辑的,所以不放在一起
+	 *
+	 * 判断当前bean是否是基础类型的,比如: Advice PointCut Advisor AopInfrastructureBean 或者是 切面Aspectj 都算是基础类型,标注这些信息的类,是不会被增强的,标记false
+	 *
+	 * 主意啊，上面说的都是作用都是进行了一下标记
+	 */
 	@Override
 	protected Object createBean(String beanName, RootBeanDefinition mbd, @Nullable Object[] args)
 			throws BeanCreationException {
@@ -486,6 +515,13 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// clone the bean definition in case of a dynamically resolved Class
 		// which cannot be stored in the shared merged bean definition.
 		// 确保 BeanDefinition 中的 Class 被加载
+
+
+		// Make sure bean class is actually resolved at this point, and
+		// clone the bean definition in case of a dynamically resolved Class which cannot be stored in the shared merged bean definition.
+		// todo 做各种各样的属性值的赋值, 比如这种 通过Spring的Bean传递给Spring框架的值  ==> bd.setPropertyValue("aaa")
+
+
 		Class<?> resolvedClass = resolveBeanClass(mbd, beanName);
 		if (resolvedClass != null && !mbd.hasBeanClass() && mbd.getBeanClassName() != null) {
 			mbdToUse = new RootBeanDefinition(mbd);
@@ -519,6 +555,20 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		try {
+			//todo 调用 doCreateBean 创建bean
+
+			/**
+			 * 我们继续跟进doCreateBean(beanName, mbdToUse, args);方法,
+			 * 同样是本类AbstarctAutowireCapableBeanFactory的方法,
+			 * 源码如下: 这个方法也是无与伦比的重要,那这个方法中做了什么事情呢?如下
+			 *
+			 * 创建一个 BeanWrapper,用来存放bean+其他属性
+			 * 创建bean的实例,封装进上面的BeanWrapper中
+			 * 分两次调用处理处理器
+			 * 设置属性，填充属性
+			 * 经过AOP处理,将原生对象转换成Proxy
+			 * 返回BeanWrapper
+			 */
 			Object beanInstance = doCreateBean(beanName, mbdToUse, args);
 			if (logger.isTraceEnabled()) {
 				logger.trace("Finished creating instance of bean '" + beanName + "'");
@@ -554,8 +604,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			throws BeanCreationException {
 
 		// Instantiate the bean.
+		// todo BeanWrapper 用来包装bean
 		BeanWrapper instanceWrapper = null;
 		if (mbd.isSingleton()) {
+			// todo 一开始 factoryBeanInstanceCache 这个map中是没有值的， 所以进入下面的if
 			instanceWrapper = this.factoryBeanInstanceCache.remove(beanName);
 		}
 		if (instanceWrapper == null) {
@@ -563,6 +615,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
 		// 这个就是 Bean 里面的 我们定义的类 的实例，很多地方我描述成 "bean 实例"
+		// todo ！！！！！！！！这里获取出来的对象是原生对象！！！！！！！！！！！！
 		Object bean = instanceWrapper.getWrappedInstance();
 		// 类型
 		Class<?> beanType = instanceWrapper.getWrappedClass();
@@ -574,6 +627,17 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		synchronized (mbd.postProcessingLock) {
 			if (!mbd.postProcessed) {
 				try {
+					/**
+					 * 第一: 是applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName); 回调后置处理器,进行有关注解的缓存操作
+					 *
+					 * 第二: 是getEarlyBeanReference(beanName, mbd, bean) 获取一个提早暴露的beanDefinition对象,用于解决循环依赖问题
+					 *
+					 * 第三: 将刚才创建原生java对象存放一个叫singletonFactories的map中,这也是为了解决循环依赖而设计的数据结构,
+					 * 举个例子: 现在准备创建A实例, 然后将A实例添加到这个singletonFactories中, 继续运行发现A实例依赖B实例,
+					 * 于是在创建B实例,接着又发现B实例依赖A实例,于是从singletonFactories取出A实例完成装配,再将B返回给A,完成A的装配
+					 *
+					 *
+					 */
 					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
 				}
 				catch (Throwable ex) {
@@ -598,12 +662,22 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		// Initialize the bean instance.
+		// todo 到目前为止还是原生对象
 		Object exposedObject = bean;
 		try {
 			// 这一步也是非常关键的，这一步负责属性装配，因为前面的实例只是实例化了，并没有设值，这里就是设值
+
+
+			//todo  用来填充属性
+			//设置属性，非常重要
+
 			populateBean(beanName, mbd, instanceWrapper);
 			// 还记得 init-method 吗？还有 InitializingBean 接口？还有 BeanPostProcessor 接口？
 			// 这里就是处理 bean 初始化完成后的各种回调
+
+			// todo 经过AOP处理,原生对象转换成了代理对象,跟进去
+			//执行后置处理器，aop就是在这里完成的处理
+
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
 		catch (Throwable ex) {
@@ -1171,10 +1245,69 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * @see #autowireConstructor
 	 * @see #instantiateBean
 	 */
+
+	/**
+	 *
+	 * 我们主要关注上面代码的determineConstructorsFromBeanPostProcessors(beanClass, beanName)
+	 *
+	 * 这个方法的目的就是推测实例化需要的构造方法, 为什么需要先推测构造方法呢? 因为Spring实例化对象时,
+	 * 需要使用特定的构造方法才能反射出对象,这时如果程序员指定了带参数的构造方法,spring就会使用这个构造方法实例化对象,
+	 * 如果程序员提供了一个不带任何参数的默认构造方法,Spring会忽略它,按自己的逻辑使用默认的无参构造
+	 *
+	 * 所以上面的if-else分支目的很明确,先是尝试获取全部的构造方法,然后看看有没有解析出来构造方法,
+	 * 解析出来的话,就使用第一种逻辑,按照 特殊的构造方法模式进行处理,有解析出来,就使用默认的构造方法
+	 *
+	 * 我们进一步跟进这个determineConstructorsFromBeanPostProcessors(beanClass, beanName)方法,
+	 * 可以发现方法里面又是一波后置处理器的回调工作,这次选出的后置处理器的类型是SmartInstantiationAwareBeanPostProcessor,
+	 * 见名知意,这种处理器可以感知到心仪的构造方法,它的主要实现逻辑就是,查看这个将被实例化的对象中有没有添加了@Lookup注解的方法,
+	 * 有的话为这种方法生成代理,循环遍历所有的构造方法,看看这些构造方法上存在不存在@Value或者@Autowired注解,
+	 * 因为这些注解中存在required=true,只要存在这种注解,Spring就将他当成候选的构造方法,但是如果存在多个的话,
+	 * Spring也不知道到底用哪一个,但是在这里Spring会将所有符合条件的都选出来,但是一般情况下,都可以正确的选出合适的构造
+	 *
+	 * 选择出合适构造方法之后,就根据不同的构造方法,选择使用不同的方式去实例化对象, 都有什么方式呢? 两种方式
+	 *
+	 * 方式1:
+	 *
+	 * 这是比较复杂的方式,此时Spring需要在这个方法内存比较好几个候选的构造方法,计算它们的差异值,
+	 * 最终值最小的构造函数就是将要用来实例化对象的构造函数,当然很可能是选不出合适的构造函数的,
+	 * 于是Spring没有立即抛出异常,而是将异常添加进bean工厂的suppressedExceptions这个set集合中
+	 *
+	 * 如果成功的选择出来一个构造函数,就会使用jdk原生的反射机制,实例化一个对象
+	 *
+	 *
+	 * 方式2:
+	 *
+	 * 直接使用JDK原生的反射机制,实例化一个对象
+	 *
+	 *
+	 *
+	 * 结:
+	 *
+	 * 代码看到这里,方才说的有才华的那个类AbstactAutowiredCapatableBeanFactory中的
+	 *
+	 * doCreateBean()方法的instanceWrapper = createBeanInstance(beanName, mbd, args); 也就看完了,
+	 *
+	 * 到这里也就知道了,Spring会先把所有满足条件的bean全部实例化存放起来,这里的对象是百分百原生java对象,不掺水不含糖
+	 *
+	 * 接着往下看,我把代码重写贴出来, 下面还有五件大事,这四件大事说完了,本文就结束了
+	 *
+	 * 第一: 是applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName); 回调后置处理器,进行有关注解的缓存操作
+	 *
+	 * 第二: 是getEarlyBeanReference(beanName, mbd, bean) 获取一个提早暴露的beanDefinition对象,用于解决循环依赖问题
+	 *
+	 * 第三: 将刚才创建原生java对象存放一个叫singletonFactories的map中,这也是为了解决循环依赖而设计的数据结构,
+	 * 举个例子: 现在准备创建A实例, 然后将A实例添加到这个singletonFactories中,
+	 * 继续运行发现A实例依赖B实例,于是在创建B实例,接着又发现B实例依赖A实例,
+	 * 于是从singletonFactories取出A实例完成装配,再将B返回给A,完成A的装配
+	 */
 	protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) {
 		// Make sure bean class is actually resolved at this point.
 		// 确保已经加载了此 class
 		Class<?> beanClass = resolveBeanClass(mbd, beanName);
+
+		/**
+		 * todo 检测一个类的访问权限， Spring默认是 允许访问非public类型的方法
+		 */
 
 		if (beanClass != null && !Modifier.isPublic(beanClass.getModifiers()) && !mbd.isNonPublicAccessAllowed()) {
 			throw new BeanCreationException(mbd.getResourceDescription(), beanName,
@@ -1195,12 +1328,20 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// 如果不是第一次创建，比如第二次创建 prototype bean。
 		// 这种情况下，我们可以从第一次创建知道，采用无参构造函数，还是构造函数依赖注入 来完成实例化
+
+		/**
+		 *  创建一个bean的快捷方式
+		 */
+
 		boolean resolved = false;
+
+		// todo 是否是必须自动装配
 		boolean autowireNecessary = false;
 		if (args == null) {
 			synchronized (mbd.constructorArgumentLock) {
 				if (mbd.resolvedConstructorOrFactoryMethod != null) {
 					resolved = true;
+					//如果已经解析了构造方法的参数，则必须要通过一个带参构造方法来实例
 					autowireNecessary = mbd.constructorArgumentsResolved;
 				}
 			}
@@ -1208,10 +1349,14 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		if (resolved) {
 			if (autowireNecessary) {
 				// 构造函数依赖注入
+				// todo 使用特定的构造方法完成自动装配
 				return autowireConstructor(beanName, mbd, null, null);
 			}
 			else {
 				// 无参构造函数
+				//通过默认的无参构造方法进行
+				//todo 通过默认的无参构造方法
+				// todo 使用特定的构造方法完成自动装配
 				return instantiateBean(beanName, mbd);
 			}
 		}
@@ -1221,6 +1366,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		Constructor<?>[] ctors = determineConstructorsFromBeanPostProcessors(beanClass, beanName);
 		if (ctors != null || mbd.getResolvedAutowireMode() == AUTOWIRE_CONSTRUCTOR ||
 				mbd.hasConstructorArgumentValues() || !ObjectUtils.isEmpty(args)) {
+			// todo 使用特定的构造方法完成自动装配
 			return autowireConstructor(beanName, mbd, ctors, args);
 		}
 
@@ -1233,6 +1379,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// No special handling: simply use no-arg constructor.
 		// 调用无参构造函数
+		//todo 使用默认的无参构造方法进行初始化
 		return instantiateBean(beanName, mbd);
 	}
 
@@ -1390,6 +1537,24 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * @param bw the BeanWrapper with bean instance
 	 */
 	@SuppressWarnings("deprecation")  // for postProcessPropertyValues
+
+
+	/**
+	 * 接着看populateBean(beanName, mbd, instanceWrapper);方法,
+	 * 这个方法很重要,就是在这个方法中进行bean属性的装配工作,啥意思呢?
+	 * 比如现在装配A实例,结果发现A实例中存在一个属性是B实例,这是就得完成自动装配的工作,源码如下:
+	 *
+	 * 如果仔细看,就会发现两个事:
+	 *
+	 * 第一: 如果不出意外,就会出现两次后置处理器的回调,
+	 * 第一后置处理器的回调是判断当前的bean中是否存在需要装配的属性,而第二波后置处理器的回调就是实打实的去完成装配的动作
+	 *
+	 * 第二: 下面的第一个处理器其实就是spring启动过程中第一个回调的处理器,
+	 * 只不过调用了这个处理器的不同的方法postProcessAfterInstantiation(),默认返回ture表示按照正常的流程装配对象的属性,
+	 * 返回false,表示不会继续装配对象中的任何属性
+	 *
+	 * 而我们则继续关注下面方法中的第二个后置处理器的,看看Spring是如何完成属性的自动装配的,关于这部分的跟踪,我写在下面代码的后面
+	 */
 	protected void populateBean(String beanName, RootBeanDefinition mbd, @Nullable BeanWrapper bw) {
 		// bean 实例的所有属性都在这里了
 		if (bw == null) {
@@ -1413,18 +1578,25 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
 			for (BeanPostProcessor bp : getBeanPostProcessors()) {
 				if (bp instanceof InstantiationAwareBeanPostProcessor) {
+
+					//todo 进行了强转, InstantiationAwareBeanPostProcessor这个接口前面说过
+					// todo 只要是通过这个接口返回出来的bean Spring不在管这个bean,不给他装配任何属性
+					//todo 当前这里没有用它这个变态的特性
+
 					InstantiationAwareBeanPostProcessor ibp = (InstantiationAwareBeanPostProcessor) bp;
+					// todo postProcessAfterInstantiation()默认是返回true, 加上! 表示false
 					if (!ibp.postProcessAfterInstantiation(bw.getWrappedInstance(), beanName)) {
 						return;
 					}
 				}
 			}
 		}
-
+		// todo Spring内部可以对BeanDefinition进行设置值, 参照自定义的 BeanFactory中获取到BeanDefinition.getPropertyValue().addXXX();
 		PropertyValues pvs = (mbd.hasPropertyValues() ? mbd.getPropertyValues() : null);
 
 		int resolvedAutowireMode = mbd.getResolvedAutowireMode();
-
+		// todo 判断当前bean的解析模型是 byName 还是 byType
+		// todo 再次验证了:::   当程序员直接使用@Autowired注解时, 既不是ByName 也不是ByType, 而是No
 		if (resolvedAutowireMode == AUTOWIRE_BY_NAME || resolvedAutowireMode == AUTOWIRE_BY_TYPE) {
 			MutablePropertyValues newPvs = new MutablePropertyValues(pvs);
 			// Add property values based on autowire by name if applicable.
@@ -1442,7 +1614,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		boolean hasInstAwareBpps = hasInstantiationAwareBeanPostProcessors();
 		boolean needsDepCheck = (mbd.getDependencyCheck() != AbstractBeanDefinition.DEPENDENCY_CHECK_NONE);
-
+		//todo 获取出对象的所有set get方法,现在是有一个 getClass()方法,因为继承了Object, 没什么其他卵用
 		PropertyDescriptor[] filteredPds = null;
 		if (hasInstAwareBpps) {
 			if (pvs == null) {
@@ -1457,7 +1629,13 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 							filteredPds = filterPropertyDescriptorsForDependencyCheck(bw, mbd.allowCaching);
 						}
 						// 这里有个非常有用的 BeanPostProcessor 进到这里: AutowiredAnnotationBeanPostProcessor
-						// 对采用 @Autowired、@Value 注解的依赖进行设值，这里的内容也是非常丰富的，不过本文不会展开说了，感兴趣的读者请自行研究
+						// 对采用 @Autowired、@Value 注解的依赖进行设值，这里的内容也是非常丰富的，
+						// 不过本文不会展开说了，感兴趣的读者请自行研究
+
+
+						/**
+						 * todo 进去
+						 */
 						pvsToUse = ibp.postProcessPropertyValues(pvs, filteredPds, bw.getWrappedInstance(), beanName);
 						if (pvsToUse == null) {
 							return;
@@ -1480,6 +1658,15 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 	}
 
+
+	/**
+	 *
+	 * 好,继续跟进pvs = ibp.postProcessPropertyValues(pvs, filteredPds, bw.getWrappedInstance(),
+	 * ,看看spring如何完成属性的自动装配,当然,还是那句话,
+	 * 如果我们直接跟进去这个方法进入的是InstantiationAwareBeanPostProcessor抽象接口抽象方法,
+	 * 而我们关注的是它的实现类AutowiredAnnotationBeanDefinitionPostProcessor的实现,打上断点依次跟进
+	 *
+	 */
 	/**
 	 * Fill in any missing property values with references to
 	 * other beans in this factory if autowire is set to "byName".
@@ -1823,12 +2010,17 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		Object wrappedBean = bean;
 		if (mbd == null || !mbd.isSynthetic()) {
 			// BeanPostProcessor 的 postProcessBeforeInitialization 回调
+
+			//todo 执行全部的后置处理器的 Before方法
+
 			wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);
 		}
 
 		try {
 			// 处理 bean 中定义的 init-method，
 			// 或者如果 bean 实现了 InitializingBean 接口，调用 afterPropertiesSet() 方法
+
+			// todo 执行所有的init方法
 			invokeInitMethods(beanName, wrappedBean, mbd);
 		}
 		catch (Throwable ex) {
@@ -1838,6 +2030,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 		if (mbd == null || !mbd.isSynthetic()) {
 			// BeanPostProcessor 的 postProcessAfterInitialization 回调
+
+			// todo 执行所有的后置处理器的 after方法
 			wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);
 		}
 

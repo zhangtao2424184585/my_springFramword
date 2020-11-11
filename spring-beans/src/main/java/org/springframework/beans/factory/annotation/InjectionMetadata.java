@@ -119,6 +119,7 @@ public class InjectionMetadata {
 	}
 
 	public void inject(Object target, @Nullable String beanName, @Nullable PropertyValues pvs) throws Throwable {
+		// todo 这里的  InjectedElement 表示单个的需要注入的元素对象
 		Collection<InjectedElement> checkedElements = this.checkedElements;
 		Collection<InjectedElement> elementsToIterate =
 				(checkedElements != null ? checkedElements : this.injectedElements);
@@ -127,7 +128,17 @@ public class InjectionMetadata {
 				if (logger.isTraceEnabled()) {
 					logger.trace("Processing injected element of bean '" + beanName + "': " + element);
 				}
+				//todo 跟进  AutowiredAnnotationBeanPostProcessor 对这个方法的实现, 在600多行处
 				element.inject(target, beanName, pvs);
+				/**
+				 * 跟进这个inject() 我是手动删除了这个方法中其他的很多判断,
+				 * 仅仅保存下来了下面我们关注的逻辑,逻辑很清楚,
+				 * 上面的代码中不是在遍历所有需要自动装配的field吗?
+				 * 如果找到了的话,就得完成自动装配,自动装配什么呢?
+				 * 其实就是自动装配上当前对象依赖的其他的对象而已,
+				 * 因为我们使用的后置处理器是AutowireAnnotationBeanPostProcessor
+				 * 通过下面的代码就能得出结论就是@Autowired默认情况下是通过反射实现的自动装配
+				 */
 			}
 		}
 	}
