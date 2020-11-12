@@ -83,6 +83,28 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 		 *
 		 * 第二个： xml扫包方式 this.scanner = new ClassPathBeanDefinitionScanner(this);
 		 */
+
+		/**
+		 * 创建一个读取注解的Bean定义读取器
+		 * 什么是bean定义？BeanDefinition
+		 *
+		 * 完成了spring内部BeanDefinition的注册（主要是后置处理器）
+		 */
+
+		/**
+		 * 创建BeanDefinition扫描器
+		 * 可以用来扫描包或者类，继而转换为bd
+		 *
+		 * spring默认的扫描器其实不是这个scanner对象
+		 * 而是在后面自己又重新new了一个ClassPathBeanDefinitionScanner
+		 * spring在执行工程后置处理器ConfigurationClassPostProcessor时，去扫描包时会new一个ClassPathBeanDefinitionScanner
+		 *
+		 * 这里的scanner仅仅是为了程序员可以手动调用AnnotationConfigApplicationContext对象的scan方法
+		 *
+		 */
+
+
+
 		this.reader = new AnnotatedBeanDefinitionReader(this);
 		this.scanner = new ClassPathBeanDefinitionScanner(this);
 	}

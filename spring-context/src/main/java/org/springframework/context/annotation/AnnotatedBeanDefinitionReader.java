@@ -85,6 +85,14 @@ public class AnnotatedBeanDefinitionReader {
 		Assert.notNull(environment, "Environment must not be null");
 		this.registry = registry;
 		this.conditionEvaluator = new ConditionEvaluator(registry, environment, null);
+		//这里最后一行很关键，注册了一些核心的BeanPostProcessor，其中很关键的，注册了这个processor：
+		/**
+		 * registerAnnotationConfigProcessors
+		 * 根据名字顾名思义就是->注册注解配置的的处理器
+		 * 也就是这个方法里面会注册一些用于处理注解的处理器
+		 */
+
+
 		AnnotationConfigUtils.registerAnnotationConfigProcessors(this.registry);
 	}
 
