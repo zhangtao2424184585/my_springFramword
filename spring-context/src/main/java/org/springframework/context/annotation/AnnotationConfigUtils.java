@@ -184,6 +184,10 @@ public abstract class AnnotationConfigUtils {
 		}
 
 		// Check for JSR-250 support, and if present add the CommonAnnotationBeanPostProcessor.
+		/**
+		 * 顾名思义就是处理一些公共注解的，它是一个bean的后置处理器，可以处理@PostConstruct和@PreDestroy还有@Resource等
+		 * 提示： 这里有一个jsr250Present校验
+		 */
 		if (jsr250Present && !registry.containsBeanDefinition(COMMON_ANNOTATION_PROCESSOR_BEAN_NAME)) {
 			RootBeanDefinition def = new RootBeanDefinition(CommonAnnotationBeanPostProcessor.class);
 			def.setSource(source);
@@ -192,6 +196,12 @@ public abstract class AnnotationConfigUtils {
 
 		// Check for JPA support, and if present add the PersistenceAnnotationBeanPostProcessor.
 		// 注册PersistenceAnnotationProcessor
+		/**
+		 *
+		 * 就是判断是否存在PersistenceAnnotationBeanPostProcessor这个类，
+		 * 很明显这是对jpa的处理，所以需要引入spring-orm的包，没有引入的话则spring不会注册这个类
+		 *
+		 */
 		if (jpaPresent && !registry.containsBeanDefinition(PERSISTENCE_ANNOTATION_PROCESSOR_BEAN_NAME)) {
 			RootBeanDefinition def = new RootBeanDefinition();
 			try {
@@ -205,13 +215,23 @@ public abstract class AnnotationConfigUtils {
 			def.setSource(source);
 			beanDefs.add(registerPostProcessor(registry, def, PERSISTENCE_ANNOTATION_PROCESSOR_BEAN_NAME));
 		}
+		/**
+		 * 这是对@EventListener注解的处理，
+		 * spring实现事件监听的方式有很多种，
+		 * 其中一种就是在方法上添加@EventListener注解@EventListener注解式实现
+		 *
+		 */
 
 		if (!registry.containsBeanDefinition(EVENT_LISTENER_PROCESSOR_BEAN_NAME)) {
 			RootBeanDefinition def = new RootBeanDefinition(EventListenerMethodProcessor.class);
 			def.setSource(source);
 			beanDefs.add(registerPostProcessor(registry, def, EVENT_LISTENER_PROCESSOR_BEAN_NAME));
 		}
-
+		/**
+		 * EventListenerMethodProcessor中会调用DefaultEventListenerFactory的方法，
+		 * 注册的具体实现是由DefaultEventListenerFactory处理
+		 *
+		 */
 		if (!registry.containsBeanDefinition(EVENT_LISTENER_FACTORY_BEAN_NAME)) {
 			RootBeanDefinition def = new RootBeanDefinition(DefaultEventListenerFactory.class);
 			def.setSource(source);
@@ -245,7 +265,7 @@ public abstract class AnnotationConfigUtils {
 			return null;
 		}
 	}
-
+	//处理注解的方法processCommonDefinitionAnnotations()
 	public static void processCommonDefinitionAnnotations(AnnotatedBeanDefinition abd) {
 		processCommonDefinitionAnnotations(abd, abd.getMetadata());
 	}

@@ -16,14 +16,7 @@
 
 package org.springframework.context.annotation;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -222,6 +215,10 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 	 */
 	@Override
 	public void postProcessBeanDefinitionRegistry(BeanDefinitionRegistry registry) {
+
+		// 这里就是根据registry(DefaultListableBeanFactory)判断当前方法是否执行过了
+		// 一个工厂的后置处理器只会执行一次
+
 		int registryId = System.identityHashCode(registry);
 		if (this.registriesPostProcessed.contains(registryId)) {
 			throw new IllegalStateException(
@@ -232,7 +229,7 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 					"postProcessBeanFactory already called on this post-processor against " + registry);
 		}
 		this.registriesPostProcessed.add(registryId);
-
+		//todo
 		processConfigBeanDefinitions(registry);
 	}
 
@@ -284,11 +281,25 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 	 */
 	public void processConfigBeanDefinitions(BeanDefinitionRegistry registry) {
 		List<BeanDefinitionHolder> configCandidates = new ArrayList<>();
+		/**
+		 * registry就是DefaultListableBeanFactory
+		 * 获取注册的所有beanName
+		 */
 		String[] candidateNames = registry.getBeanDefinitionNames();
+		/**
+		 * 循环处理所有BeanDefinition
+		 */
 
 		for (String beanName : candidateNames) {
+			// 根据beanName获得BeanDefinition
 			BeanDefinition beanDef = registry.getBeanDefinition(beanName);
 			if (beanDef.getAttribute(ConfigurationClassUtils.CONFIGURATION_CLASS_ATTRIBUTE) != null) {
+				/**
+				 * 如果BeanDefinition中的configurationClass属性为full或者lite,则意味着已经处理过了，直接跳过
+				 *
+				 * 后面处理BeanDefinition时，会给bd设置一个属性（key为configurationClass，value为full或者lite）
+				 */
+
 				if (logger.isDebugEnabled()) {
 					logger.debug("Bean definition has already been processed as a configuration class: " + beanDef);
 				}
@@ -323,10 +334,18 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 		 */
 		if (registry instanceof SingletonBeanRegistry) {
 			sbr = (SingletonBeanRegistry) registry;
+			/**
+			 * 判断是否有自定义的beanName生成器
+			 */
 			if (!this.localBeanNameGeneratorSet) {
 				BeanNameGenerator generator = (BeanNameGenerator) sbr.getSingleton(
 						AnnotationConfigUtils.CONFIGURATION_BEAN_NAME_GENERATOR);
+				// 获取spring默认的beanName生成器，这里为空
 				if (generator != null) {
+					/**
+					 * componentScanBeanNameGenerator与importBeanNameGenerator定义时就赋值了new AnnotationBeanNameGenerator()
+					 * 如果spring有默认的beanName生成器，则重新赋值
+					 */
 					this.componentScanBeanNameGenerator = generator;
 					this.importBeanNameGenerator = generator;
 				}
@@ -410,19 +429,24 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			// 这样就会执行ImportBeanDefinitionRegistrar或者ImportSelector接口的方法或者@Bean注释的方法
 
 			//该方法实际上是将通过@Import、@Bean等注解方式注册的类解析成BeanDefinition，然后注册到BeanDefinitionMap中。
-			this.reader.loadBeanDefinitions(configClasses);
+
+
+			/**
+			 * 在这里统一处理
+			 * 处理其实现ImportBeanDefinitionRegistrar的bd
+			 * 处理注解@ImportResource和@Bean
+			 */
+
 			this.reader.loadBeanDefinitions(configClasses);
 			alreadyParsed.addAll(configClasses);
 
 			candidates.clear();
-
 			// 这里判断registry.getBeanDefinitionCount() > candidateNames.length的目的是为了知道reader.loadBeanDefinitions(configClasses)这一步有没有向BeanDefinitionMap中添加新的BeanDefinition
 			// 实际上就是看配置类(例如AppConfig类会向BeanDefinitionMap中添加bean)
 			// 如果有，registry.getBeanDefinitionCount()就会大于candidateNames.length
 			// 这样就需要再次遍历新加入的BeanDefinition，并判断这些bean是否已经被解析过了，如果未解析，需要重新进行解析
 			// 这里的AppConfig类向容器中添加的bean，实际上在parser.parse()这一步已经全部被解析了
 			// 所以为什么还需要做这个判断，目前没看懂，似乎没有任何意义。
-
 			if (registry.getBeanDefinitionCount() > candidateNames.length) {
 				String[] newCandidateNames = registry.getBeanDefinitionNames();
 				Set<String> oldCandidateNames = new HashSet<>(Arrays.asList(candidateNames));

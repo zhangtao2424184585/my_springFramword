@@ -289,6 +289,11 @@ public class AnnotatedBeanDefinitionReader {
 		String beanName = (name != null ? name : this.beanNameGenerator.generateBeanName(abd, this.registry));
 		//通用注解解析到abd结构中，主要是处理Lazy, primary DependsOn, Role ,Description这五个注解
 		AnnotationConfigUtils.processCommonDefinitionAnnotations(abd);
+
+		/**
+		 * 如果在向容器注册注解bean定义时，使用了额外的限定符注解
+		 * 依次判断了注解当中是否包含了Primary、Lazy、qualifier
+		 */
 		// @Qualifier特殊限定符处理，
 		if (qualifiers != null) {
 			for (Class<? extends Annotation> qualifier : qualifiers) {
@@ -309,6 +314,9 @@ public class AnnotatedBeanDefinitionReader {
 
 		//自定义bean注册，通常用在applicationContext创建后，手动向容器中以lambda表达式的方式注册bean
 		//比如：applicationContext.registerBean(UserService.class, () -> new UserService())
+		/**
+		 * 自定义注解
+		 */
 		if (customizers != null) {
 			for (BeanDefinitionCustomizer customizer : customizers) {
 				customizer.customize(abd);

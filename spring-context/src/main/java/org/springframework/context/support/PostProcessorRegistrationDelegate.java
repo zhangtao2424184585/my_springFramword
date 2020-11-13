@@ -97,6 +97,20 @@ final class PostProcessorRegistrationDelegate {
 			// 3.调用所有实现PriorityOrdered接口的BeanDefinitionRegistryPostProcessor实现类
 			// 3.1 找出所有实现BeanDefinitionRegistryPostProcessor接口的Bean的beanName
 			// First, invoke the BeanDefinitionRegistryPostProcessors that implement PriorityOrdered.
+
+
+			/**
+			 * 这个地方得到一个BeanFactoryPostProcessor,因为是spring默认在最开始自己注册的
+			 * 为什么要在最开始注册这个bean？
+			 * 因为spring工厂需要去解析、扫描等功能
+			 * 而这些功能都是需要在spring工厂初始化完成之前去执行
+			 * 要么在工厂最开始的时候、要么在工程初始化之中，反正不能在之后
+			 *
+			 * 所以这里spring在一开始的时候就注册了一个BeanFactoryPostProcessor,用来插手springFactory的实例化过程
+			 * 此处断点可知这个类叫做：ConfigurationAnnotationProcessor
+			 */
+
+
 			String[] postProcessorNames =
 					beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false);
 			for (String ppName : postProcessorNames) {
@@ -114,6 +128,17 @@ final class PostProcessorRegistrationDelegate {
 			// 3.7 添加到registryProcessors(用于最后执行postProcessBeanFactory方法)
 			registryProcessors.addAll(currentRegistryProcessors);
 			// 3.8 遍历currentRegistryProcessors, 执行postProcessBeanDefinitionRegistry方法
+
+			/**
+			 * 这个方法最重要
+			 * 开始循环调用BeanDefinitionRegistryPostProcessor
+			 *
+			 * 其中有一个spring内部的BeanDefinitionRegistryPostProcessors——>ConfigurationClassPostProcessor
+			 * 处理@Configuration/@Component等注解，扫描、注册包下的类
+			 * 处理@Import/@ImportResource/@Bean等...
+			 */
+
+
 			invokeBeanDefinitionRegistryPostProcessors(currentRegistryProcessors, registry);
 			// 3.9 执行完毕后, 清空currentRegistryProcessors
 			currentRegistryProcessors.clear();
@@ -133,6 +158,17 @@ final class PostProcessorRegistrationDelegate {
 			sortPostProcessors(currentRegistryProcessors, beanFactory);
 			registryProcessors.addAll(currentRegistryProcessors);
 			// 4.2 遍历currentRegistryProcessors, 执行postProcessBeanDefinitionRegistry方法
+
+			/**
+			 * 这个方法最重要
+			 * 开始循环调用BeanDefinitionRegistryPostProcessor
+			 *
+			 * 其中有一个spring内部的BeanDefinitionRegistryPostProcessors——>ConfigurationClassPostProcessor
+			 * 处理@Configuration/@Component等注解，扫描、注册包下的类
+			 * 处理@Import/@ImportResource/@Bean等...
+			 */
+
+
 			invokeBeanDefinitionRegistryPostProcessors(currentRegistryProcessors, registry);
 			currentRegistryProcessors.clear();
 
