@@ -905,11 +905,9 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		// While this may not be part of the regular factory bootstrap, it does otherwise work fine.
 		List<String> beanNames = new ArrayList<>(this.beanDefinitionNames);
 
-		// Trigger initialization of all non-lazy singleton beans...
 		// 触发所有的非懒加载的 singleton beans 的初始化操作
 		for (String beanName : beanNames) {
 			// 合并父 Bean 中的配置，注意 <bean id="" class="" parent="" /> 中的 parent，用的不多吧，
-			// 考虑到这可能会影响大家的理解，我在附录中解释了一下 "Bean 继承"，请移步
 
 			// todo 合并父类BeanDefinition,可以进入查看
 			RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
@@ -917,7 +915,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 			//todo 三个条件,抽象,单例,非懒加载
 			if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
-				// 处理 FactoryBean(读者如果不熟悉 FactoryBean，请移步附录区了解)
+				// 处理 FactoryBean
 				if (isFactoryBean(beanName)) {
 					// FactoryBean 的话，在 beanName 前面加上 ‘&’ 符号。再调用 getBean，getBean 方法别急
 					Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
@@ -948,7 +946,9 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 					// todo 因为我们没有添加FactoryBean类型的对象, 一般都会进入这个getBean
 
 					/*
-					 * 下面接着跟进getBean(beanName);方法,顾名思义获取Bean,再往下跟下去,就算是本文的正文开始部分了,但是我想在这里提醒自己,一个比较有分量的剧透吧,当前的getBean(beanName)它是有返回值的,一会当我们往下跟进的是时候会发现会存在递归的现象,这一点巧妙的实现了@Autowired处理setter方式实现循环引用
+					 * 下面接着跟进getBean(beanName);方法,顾名思义获取Bean,再往下跟下去,就算是本文的正文开始部分了,
+					 * 但是我想在这里提醒自己,一个比较有分量的剧透吧,当前的getBean(beanName)它是有返回值的,一会当我们往下跟进的是时候会发现会存在递归的现象,
+					 * 这一点巧妙的实现了@Autowired处理setter方式实现循环引用
 
 						ok,现在继续看代码,经过了几个空方法的传递,我们来到下面的代码中,它主要做了如下几件事
 
@@ -958,7 +958,11 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 						为什么在创建bean之前先调用getSingleton()?
 
-						回想一下,现在是Spring启动的过程中,是在准备实例化bean,为什么一开始就来getSingleton(),跟进源码查看这个方法,它最终实现中有一行代码是这样的Object singletonObject = this.singletonObjects.get(beanName);而这个singletonObjects就是微观层面的IOC容器,循环创建刚开始时,IOC确实是空的,但是我前面存在剧透,一开始的getBean()方法是存在递归调用现象的,直接举2个例子: 第一:假如现在在实例化A,结果有发现需要给A注入B, 那Spring是不是得获得B,怎么获得呢? 递归使用getBean(BName)完成, 第二个例子: A被添加上了@Lazy注解,是懒加载的,但是终究有一个会通过getBean(AName)获取A,这是发现A是实例化需要B,B肯定已经实例化完事了,同样是通过递归getBean(BName)实现注入, 在这两个过程中就是getSingleton()保证不会重复创建已经存在的实例
+						回想一下,现在是Spring启动的过程中,是在准备实例化bean,为什么一开始就来getSingleton(),跟进源码查看这个方法,
+						* 它最终实现中有一行代码是这样的Object singletonObject = this.singletonObjects.get(beanName);而这个singletonObjects就是微观层面的IOC容器,
+						* 循环创建刚开始时,IOC确实是空的,但是我前面存在剧透,一开始的getBean()方法是存在递归调用现象的,直接举2个例子: 第一:假如现在在实例化A,结果有发现需要给A注入B,
+						* 那Spring是不是得获得B,怎么获得呢? 递归使用getBean(BName)完成, 第二个例子: A被添加上了@Lazy注解,是懒加载的,但是终究有一个会通过getBean(AName)获取A,
+						* 这是发现A是实例化需要B,B肯定已经实例化完事了,同样是通过递归getBean(BName)实现注入, 在这两个过程中就是getSingleton()保证不会重复创建已经存在的实例
 
 						我们关注的重点其实是第二个getSingleton(beanName()->{xxx})
 
@@ -975,7 +979,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 
 		// Trigger post-initialization callback for all applicable beans...
 		// 到这里说明所有的非懒加载的 singleton beans 已经完成了初始化
-		// 如果我们定义的 bean 是实现了 SmartInitializingSingleton 接口的，那么在这里得到回调，忽略
+		// 如果我们定义的 bean 是实现了 SmartInitializingSingleton 接口的，那么在这里得到回调
 		for (String beanName : beanNames) {
 			Object singletonInstance = getSingleton(beanName);
 			if (singletonInstance instanceof SmartInitializingSingleton) {

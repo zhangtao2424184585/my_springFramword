@@ -1069,6 +1069,9 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		// 我在附录中简单介绍了一下 ConversionService，因为这实在太实用了
 		// 什么，看代码这里没有初始化 Bean 啊！
 		// 注意了，初始化的动作包装在 beanFactory.getBean(...) 中，这里先不说细节，先往下看吧
+
+
+		// 判断是否有bdName为conversionService的bd(实现ConversionService接口)，有的话注册为格式转换器服务类
 		if (beanFactory.containsBean(CONVERSION_SERVICE_BEAN_NAME) &&
 				beanFactory.isTypeMatch(CONVERSION_SERVICE_BEAN_NAME, ConversionService.class)) {
 			beanFactory.setConversionService(
@@ -1084,6 +1087,8 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		// 先初始化 LoadTimeWeaverAware 类型的 Bean
 		// 一般用于织入第三方模块，在 class 文件载入 JVM 的时候动态织入，这里不展开说
 		// Initialize LoadTimeWeaverAware beans early to allow for registering their transformers early.
+
+		// 获取LoadTimeWeaverAware类型的bd，提前实例化
 		String[] weaverAwareNames = beanFactory.getBeanNamesForType(LoadTimeWeaverAware.class, false, false);
 		for (String weaverAwareName : weaverAwareNames) {
 			getBean(weaverAwareName);
@@ -1094,10 +1099,12 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		// 没什么别的目的，因为到这一步的时候，Spring 已经开始预初始化 singleton beans 了，
 		// 肯定不希望这个时候还出现 bean 定义解析、加载、注册。
 		// Allow for caching all bean definition metadata, not expecting further changes.
+		// 冻结上下文，不允许再进行修改配置
 		beanFactory.freezeConfiguration();
 		// 开始初始化剩下的
 		// Instantiate all remaining (non-lazy-init) singletons.
 		// DefaultListableBeanFactory 728
+		// 实例化预处理
 		beanFactory.preInstantiateSingletons();
 	}
 

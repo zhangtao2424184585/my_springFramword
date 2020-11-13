@@ -632,9 +632,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			if (!mbd.postProcessed) {
 				try {
 					/**
-					 * 第一: 是applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName); 回调后置处理器,进行有关注解的缓存操作
+					 * 第一: 是applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
+					 * 回调后置处理器,进行有关注解的缓存操作
 					 *
-					 * 第二: 是getEarlyBeanReference(beanName, mbd, bean) 获取一个提早暴露的beanDefinition对象,用于解决循环依赖问题
+					 * 第二: 是getEarlyBeanReference(beanName, mbd, bean) 获取一个提早暴露的beanDefinition对象,
+					 * 用于解决循环依赖问题
 					 *
 					 * 第三: 将刚才创建原生java对象存放一个叫singletonFactories的map中,这也是为了解决循环依赖而设计的数据结构,
 					 * 举个例子: 现在准备创建A实例, 然后将A实例添加到这个singletonFactories中, 继续运行发现A实例依赖B实例,
@@ -654,7 +656,15 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Eagerly cache singletons to be able to resolve circular references
 		// even when triggered by lifecycle interfaces like BeanFactoryAware.
-		// 下面这块代码是为了解决循环依赖的问题，以后有时间，我再对循环依赖这个问题进行解析吧
+		// 下面这块代码是为了解决循环依赖的问题
+
+		/**
+		 * mbd.isSingleton() 是否是单例的
+		 *
+		 * this.allowCircularReferences 是否允许循环引用
+		 *
+		 * isSingletonCurrentlyInCreation(beanName) 是否正在创建对象
+		 */
 		boolean earlySingletonExposure = (mbd.isSingleton() && this.allowCircularReferences &&
 				isSingletonCurrentlyInCreation(beanName));
 		if (earlySingletonExposure) {
@@ -662,6 +672,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				logger.trace("Eagerly caching bean '" + beanName +
 						"' to allow for resolving potential circular references");
 			}
+
+			//提前暴露早期对象
 			addSingletonFactory(beanName, () -> getEarlyBeanReference(beanName, mbd, bean));
 		}
 
@@ -674,7 +686,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 			//todo  用来填充属性
 			//设置属性，非常重要
-
+			//解决循环依赖的问题
 			populateBean(beanName, mbd, instanceWrapper);
 			// 还记得 init-method 吗？还有 InitializingBean 接口？还有 BeanPostProcessor 接口？
 			// 这里就是处理 bean 初始化完成后的各种回调
@@ -1922,6 +1934,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					}
 					originalValue = new DependencyDescriptor(new MethodParameter(writeMethod, 0), true);
 				}
+
+				//这里是给循环依赖赋值的方法
 				Object resolvedValue = valueResolver.resolveValueIfNecessary(pv, originalValue);
 				Object convertedValue = resolvedValue;
 				boolean convertible = bw.isWritableProperty(propertyName) &&
@@ -1958,8 +1972,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			bw.setPropertyValues(new MutablePropertyValues(deepCopy));
 		}
 		catch (BeansException ex) {
-			throw new BeanCreationException(
-					mbd.getResourceDescription(), beanName, "Error setting property values", ex);
+			throw new BeanCreationException(mbd.getResourceDescription(), beanName, "Error setting property values", ex);
 		}
 	}
 

@@ -105,6 +105,7 @@ class BeanDefinitionValueResolver {
 	 * @return the resolved object
 	 */
 	@Nullable
+	//这里解决循环依赖的问题
 	public Object resolveValueIfNecessary(Object argName, @Nullable Object value) {
 		// We must check each value to see whether it requires a runtime reference
 		// to another bean to be resolved.
@@ -299,7 +300,7 @@ class BeanDefinitionValueResolver {
 	 * Resolve a reference to another bean in the factory.
 	 */
 	@Nullable
-	private Object resolveReference(Object argName, RuntimeBeanReference ref) {
+	private Object 	resolveReference(Object argName, RuntimeBeanReference ref) {
 		try {
 			Object bean;
 			Class<?> beanType = ref.getBeanType();
