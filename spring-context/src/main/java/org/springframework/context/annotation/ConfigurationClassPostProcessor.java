@@ -306,10 +306,14 @@ public class ConfigurationClassPostProcessor implements BeanDefinitionRegistryPo
 			}
 			// checkConfigurationClassCandidate()会判断一个是否是一个配置类,并为BeanDefinition设置属性为lite或者full。
 			// 在这儿为BeanDefinition设置lite和full属性值是为了后面在使用
-			// 如果加了@Configuration，那么对应的BeanDefinition为full;
+			// 如果加了@Configuration，那么对应的BeanDefinition为full;并且proxyBeanMethods = false 的情况下为full模式
 			// 如果加了@Bean,@Component,@ComponentScan,@Import,@ImportResource这些注解，则为lite。
 			//lite和full均表示这个BeanDefinition对应的类是一个配置类
 
+
+			//lite 跟full 的区别 ：
+			// 要是为full模式 @Bean修饰的方法只会执行一次 统一配置类中调用@Bean修饰的方法都是指向的ioc的单例池
+			//lite 跟普通方法一样
 			else if (ConfigurationClassUtils.checkConfigurationClassCandidate(beanDef, this.metadataReaderFactory)) {
 				configCandidates.add(new BeanDefinitionHolder(beanDef, beanName));
 			}

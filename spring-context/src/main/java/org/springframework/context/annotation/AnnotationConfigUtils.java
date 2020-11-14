@@ -165,7 +165,9 @@ public abstract class AnnotationConfigUtils {
 				beanFactory.setAutowireCandidateResolver(new ContextAnnotationAutowireCandidateResolver());
 			}
 		}
+		//BeanDefinitionHolder 看源码一目了然
 
+		//注解BeanPostProcessor 是通过注册BeanDefinition的方式注册的。
 		Set<BeanDefinitionHolder> beanDefs = new LinkedHashSet<>(8);
 		/**
 		 * spring默认的BeanDefinition的注册，很重要，需要理解每个bean的类型

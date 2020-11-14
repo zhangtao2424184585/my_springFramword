@@ -91,7 +91,12 @@ class ConditionEvaluator {
 			 * 如果bean定义被设置了full或者lite属性，则如果存在设置bean定义的order属性
 			 */
 			if (metadata instanceof AnnotationMetadata &&
-					ConfigurationClassUtils.isConfigurationCandidate((AnnotationMetadata) metadata)) {
+			/**
+			 * ConfigurationClassUtils.isConfigurationCandidate((AnnotationMetadata) metadata) 如果是
+			 * @Component @ComponentScan @import @importResource
+			 * 4个注解标记会返回true 要是 有@Bean的方法也返回true 是接口以及报错会返回false
+			 */
+			ConfigurationClassUtils.isConfigurationCandidate((AnnotationMetadata) metadata)) {
 				//ConfigurationPhase.PARSE_CONFIGURATION 如果Condition不匹配，则@Configuration注解的类不会加载
 				return shouldSkip(metadata, ConfigurationPhase.PARSE_CONFIGURATION);
 			}

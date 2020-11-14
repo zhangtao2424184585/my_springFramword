@@ -93,6 +93,7 @@ public class AnnotatedBeanDefinitionReader {
 		 */
 
 
+
 		AnnotationConfigUtils.registerAnnotationConfigProcessors(this.registry);
 	}
 
@@ -325,6 +326,18 @@ public class AnnotatedBeanDefinitionReader {
 		//根据beanName和bean定义信息封装一个beanhold,heanhold其实就是一个 beanname和BeanDefinition的映射
 		BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(abd, beanName);
 		//创建代理对象
+
+		/**
+		 *proxyMode是用来配置当前类的代理模式的。主要用于scope非singleton的情况。
+		 *
+		 * 因为非singleton的bean spring并不会立刻创建对象，如果需要注入时就产生一个代理对象，这时代理模式就起作用了。
+		 *
+		 * 默认值DEFAULT 就是 NO ：意思就是不使用代理，如果需要就立刻创建。
+		 *
+		 * INTERFACES : 表示使用jdk实现动态代理。
+		 *
+		 * TARGET_CLASS：表示使用CGLib实现动态代理。
+		 */
 		definitionHolder = AnnotationConfigUtils.applyScopedProxyMode(scopeMetadata, definitionHolder, this.registry);
 		/**
 		 *  BeanDefinitionReaderUtils.registerBeanDefinition

@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.concurrent.CyclicBarrier;
 import java.util.function.Predicate;
 
 import org.apache.commons.logging.Log;
@@ -78,6 +79,7 @@ import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Controller;
 import org.springframework.util.Assert;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.CollectionUtils;
@@ -234,7 +236,8 @@ class ConfigurationClassParser {
 		 */
 
 
-		// 处理配置类，由于配置类可能存在父类(若父类的全类名是以java开头的，则除外)，所有需要将configClass变成sourceClass去解析，然后返回sourceClass的父类。
+		// 处理配置类，由于配置类可能存在父类(若父类的全类名是以java开头的，则除外)，所有需要将configClass变成sourceClass去解析，
+		// 然后返回sourceClass的父类。
 		// 如果此时父类为空，则不会进行while循环去解析，如果父类不为空，则会循环的去解析父类
 		// SourceClass的意义：简单的包装类，目的是为了以统一的方式去处理带有注解的类，不管这些类是如何加载的
 		// 如果无法理解，可以把它当做一个黑盒，不会影响看spring源码的主流程
@@ -376,7 +379,7 @@ class ConfigurationClassParser {
 				 * 它会基于某个类上的@ComponentScan注解属性分析指定包(package)以获取其中的bean定义
 				 *
 				 * 扫描普通类
-				 * 带有@Component等四个元注解的类
+				 * 带有@Component等四个元注解的类@Service
 				 * 扫描完后注解注册
 				 */
 
@@ -409,7 +412,7 @@ class ConfigurationClassParser {
 
 		// Process any @Import annotations
 		/**
-		 * 一下均不是普通类：不是通过扫描出来的
+		 * 以下不是通过扫描出来的
 		 * @Import/@ImportResource/@Bean等，会先放到当前ConfigurationClass中
 		 * 然后在ConfigurationClassPostProcessor后面进行统一处理/注册
 		 */
@@ -419,13 +422,10 @@ class ConfigurationClassParser {
 		 * 2.实现ImportBeanDefinitionRegistrar
 		 * 3.普通类
 		 */
-
 		// 4.处理Import注解注册的bean，这一步只会将import注册的bean变为ConfigurationClass,
 		// 不会变成BeanDefinition
 		// 而是在loadBeanDefinitions()方法中变成BeanDefinition，
 		// 再放入到BeanDefinitionMap中
-		// 关于Import注解,后面会单独写文章介绍
-
 		processImports(configClass, sourceClass, getImports(sourceClass), filter, true);
 
 		// Process any @ImportResource annotations
@@ -686,15 +686,23 @@ class ConfigurationClassParser {
 			boolean checkForCircularImports) {
 
 		if (importCandidates.isEmpty()) {
+			// 如果配置类上没有任何候选@Import，说明没有需要处理的导入，则什么都不用做，直接返回
 			return;
 		}
 		// 判断是否重复执行了
 		if (checkForCircularImports && isChainedImportOnStack(configClass)) {
+			// 如果要求做循环导入检查，并且检查到了循环依赖，报告这个问题
 			this.problemReporter.error(new CircularImportProblem(configClass, this.importStack));
 		}
 		else {
+			// 开始处理配置类configClass上所有的@Import importCandidates
 			this.importStack.push(configClass);
 			try {
+				// 循环处理每一个@Import,每个@Import可能导入三种类型的类 :
+				// 1. ImportSelector
+				// 2. ImportBeanDefinitionRegistrar
+				// 3. 其他类型，都当作配置类处理，也就是相当于使用了注解@Configuration的配置类
+				// 下面的for循环中对这三种情况执行了不同的处理逻辑
 				for (SourceClass candidate : importCandidates) {
 					// 如果是实现了ImportSelector接口的bd
 					if (candidate.isAssignable(ImportSelector.class)) {
