@@ -913,17 +913,17 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
 			// 非抽象、非懒加载的 singletons。如果配置了 'abstract = true'，那是不需要初始化的
 
-			//todo 三个条件,抽象,单例,非懒加载
+			//todo 三个条件,非抽象,单例,非懒加载
 			if (!bd.isAbstract() && bd.isSingleton() && !bd.isLazyInit()) {
 				// 处理 FactoryBean
 				if (isFactoryBean(beanName)) {
-					// FactoryBean 的话，在 beanName 前面加上 ‘&’ 符号。再调用 getBean，getBean 方法别急
+					// FactoryBean 的话，在 beanName 前面加上 ‘&’ 符号。再调用 getBean
 					Object bean = getBean(FACTORY_BEAN_PREFIX + beanName);
 
 					// todo 如果是FactoryBean则加上&
 					// todo 检验是否是 FactoryBean 类型的对象
 
-					// 判断当前 FactoryBean 是否是 SmartFactoryBean 的实现，此处忽略，直接跳过
+					// 判断当前 FactoryBean 是否是 SmartFactoryBean 的实现
 					if (bean instanceof FactoryBean) {
 						FactoryBean<?> factory = (FactoryBean<?>) bean;
 						//急切的实例化

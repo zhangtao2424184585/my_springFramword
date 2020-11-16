@@ -543,7 +543,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		try {
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
 			// 让 BeanPostProcessor 在这一步有机会返回代理，而不是 bean 实例，
-			// 要彻底了解清楚这个，需要去看 InstantiationAwareBeanPostProcessor 接口，这里就不展开说了
+			// 要彻底了解清楚这个，需要去看 InstantiationAwareBeanPostProcessor 接口
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
 				return bean;
@@ -615,7 +615,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			instanceWrapper = this.factoryBeanInstanceCache.remove(beanName);
 		}
 		if (instanceWrapper == null) {
-			// 说明不是 FactoryBean，这里实例化 Bean，这里非常关键
+			// 说明不是 FactoryBean，这里实例化 Bean，这里非常关键 这个地方的注释有待考证
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
 		// 这个就是 Bean 里面的 我们定义的类 的实例，很多地方我描述成 "bean 实例"
@@ -1328,14 +1328,36 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			throw new BeanCreationException(mbd.getResourceDescription(), beanName,
 					"Bean class isn't public, and non-public access not allowed: " + beanClass.getName());
 		}
-
+		//配置的一种特殊的callback回调方法，通过这个callback创建bean
+		//若 RootBeanDefinition 中设置了 Supplier 则使用 Supplier 提供的bean
 		Supplier<?> instanceSupplier = mbd.getInstanceSupplier();
 		if (instanceSupplier != null) {
 			return obtainFromSupplier(instanceSupplier, beanName);
 		}
+		//通过工厂方法创建
 
+
+		/**
+		 * 如果RootBeanDefinition 中存在 factoryMethodName 属性，或者在配置文件中配置了factory-method，
+		 * Spring会尝试使用 instantiateUsingFactoryMethod 方法，根据RootBeanDefinition 中的配置生成bean实例。
+		 * 如果一个类中中的方法被 @Bean注解修饰，那么Spring则会将其封装成一个 ConfigurationClassBeanDefinition。
+		 * 此时 factoryMethodName 也被赋值。所以也会调用instantiateUsingFactoryMethod 方法通过反射完成方法的调用，
+		 * 并将结果注入Spring容器中。
+		 */
 		if (mbd.getFactoryMethodName() != null) {
 			// 采用工厂方法实例化
+
+			/**
+			 * 在 xml配置中，可以使用 factory-bean 和 factory-method 两个标签可以指定一个类中的方法，
+			 * Spring会将这个指定的方法的返回值作为bean返回(如果方法是静态方法，则可以不创建factorybean就直接调用，
+			 * 否则需要先将factorybean注入到Spring中)。
+			 *
+			 * 对@Bean 注解的解析。在 ConfigurationClassPostProcessor 后处理器中，
+			 * 会对被 @Bean 注解修饰的方法进行解析，生成一个 ConfigurationClassBeanDefinition的 BeanDefinition。
+			 * 此时BeanDefinition 的 factoryMethodName 正是 @Bean修饰的方法本身。
+			 * 所以这里会调用 instantiateUsingFactoryMethod 方法。通过回调的方式调用 @Bean修饰的方法。
+			 * 并将返回结果注入到Spring容器中。
+			 */
 			return instantiateUsingFactoryMethod(beanName, mbd, args);
 		}
 
@@ -1348,6 +1370,24 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		 *  创建一个bean的快捷方式
 		 */
 
+
+		// 一个类可能有多个构造器，所以Spring得根据参数个数、类型确定需要调用的构造器
+		// 在使用构造器创建实例后，Spring会将解析过后确定下来的构造器或工厂方法保存在缓存中，避免再次创建相同bean时再次解析
+
+		/**
+		 * 到达这一步，Spring则打算通过bean的构造函数来创建bean。
+		 * 但是一个bean可能会存在多个构造函数，这时候Spring会根据参数列表的来判断使用哪个构造函数进行实例化。
+		 * 但是判断过程比较消耗性能，所以Spring将判断好的构造函数缓存到RootBeanDefinition 中的。
+		 *
+		 * RootBeanDefinition 中
+		 * 		resolvedConstructorOrFactoryMethod ： 用于缓存已解析的构造函数或工厂方法
+		 * 		constructorArgumentsResolved ： 用于标记构造函数是否已经完成解析
+		 *
+		 * 	    这里对这两个字段的操作实际上在后面 对构造函数的解析上，
+		 * 	    如果解析成功，则会使用 resolvedConstructorOrFactoryMethod 保存，
+		 * 	    并且将constructorArgumentsResolved 置为true。
+		 * 	    等下次请求的时候可以直接使用缓存好的构造函数来处理。
+		 */
 		boolean resolved = false;
 
 		// todo 是否是必须自动装配
@@ -1364,7 +1404,8 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		if (resolved) {
 			if (autowireNecessary) {
 				// 构造函数依赖注入
-				// todo 使用特定的构造方法完成自动装配
+				//这个代码量非常巨大，实现的功能实现上比较复杂，功能上却可以一句话讲清，
+				// 简单来说，就是根据传入的参数列表，来匹配到合适的构造函数进行bean 的创建。
 				return autowireConstructor(beanName, mbd, null, null);
 			}
 			else {

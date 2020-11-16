@@ -1068,7 +1068,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		// 首先，初始化名字为 conversionService 的 Bean。本着送佛送到西的精神，
 		// 我在附录中简单介绍了一下 ConversionService，因为这实在太实用了
 		// 什么，看代码这里没有初始化 Bean 啊！
-		// 注意了，初始化的动作包装在 beanFactory.getBean(...) 中，这里先不说细节，先往下看吧
+		// 注意了，初始化的动作包装在 beanFactory.getBean(...) 中
 
 
 		// 判断是否有bdName为conversionService的bd(实现ConversionService接口)，有的话注册为格式转换器服务类
