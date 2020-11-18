@@ -124,8 +124,16 @@ class ConstructorResolver {
 	 */
 	public BeanWrapper autowireConstructor(String beanName, RootBeanDefinition mbd,
 			@Nullable Constructor<?>[] chosenCtors, @Nullable Object[] explicitArgs) {
-
+		/**
+		 * 这个类是一个类型转换的类 猜测
+		 */
 		BeanWrapperImpl bw = new BeanWrapperImpl();
+		  /*
+		这里的beanFactory是初始化ConstructorResolver构造器的时候在
+		AbstractAutowireCapableBeanFactory类的autowireConstructor
+		方法中传进来的就是AbstractAutowireCapableBeanFactory
+		 */
+
 		this.beanFactory.initBeanWrapper(bw);
 
 		Constructor<?> constructorToUse = null;
@@ -141,6 +149,8 @@ class ConstructorResolver {
 			Object[] argsToResolve = null;
 			// 加锁
 			synchronized (mbd.constructorArgumentLock) {
+				//获取已缓存解析的构造函数或工厂方法
+				// （resolvedConstructorOrFactoryMethod----用于缓存已解析的构造函数或工厂方法）
 				// 从缓存中获取要使用的构造函数
 				constructorToUse = (Constructor<?>) mbd.resolvedConstructorOrFactoryMethod;
 				if (constructorToUse != null && mbd.constructorArgumentsResolved) {
@@ -151,6 +161,14 @@ class ConstructorResolver {
 					if (argsToUse == null) {
 						// 配置构造函数参数
 						// preparedConstructorArguments 是尚未完全解析的构造函数参数
+
+
+						//如果获取到的缓存的构造参数是空，
+						//就获取缓存的部分准备的构造函数参数（preparedConstructorArguments
+						//---用于缓存部分准备的构造函数参数的包可见字段）
+
+
+
 						argsToResolve = mbd.preparedConstructorArguments;
 					}
 				}
@@ -159,6 +177,10 @@ class ConstructorResolver {
 			if (argsToResolve != null) {
 				// 解析参数类型，如给定的参数列表为(int,int),这时就会将配置中的("1", "1") 转化为 (1,1)
 				// 缓存中的值可能是最终值，也可能是原始值，因为不一定需要类型转换
+
+
+				//如果缓存的参数不是空，就进行解析，解析时会对
+				//argsToResolve中的每个的类型进行转化，也是一个复杂的逻辑
 				argsToUse = resolvePreparedArguments(beanName, mbd, bw, constructorToUse, argsToResolve, true);
 			}
 		}
@@ -168,6 +190,8 @@ class ConstructorResolver {
 			// chosenCtors 是候选的构造函数，如果存在候选的构造函数，则跳过这里，否则获取bean的构造函数集合
 			Constructor<?>[] candidates = chosenCtors;
 			if (candidates == null) {
+				//如果传入的构造器不是空的，那么就获取bean的注入模式，
+				//如果是空就按照构造器注入方式注入
 				Class<?> beanClass = mbd.getBeanClass();
 				try {
 					// 获取bean的构造函数
@@ -197,6 +221,15 @@ class ConstructorResolver {
 
 			// Need to resolve the constructor.
 			//  待选构造函数列表不为null || 需要构造注入，则需要解析
+
+
+
+			//getResolvedAutowireMode方法逻辑是，
+			//如果是自适应注入方法就看有没有无参构造器，
+			//如果存在就按照type类型注入，
+			//如果不存在就按照构造器方式注入，
+			//如果没有设置注入方式就不注入
+
 			boolean autowiring = (chosenCtors != null ||
 					mbd.getResolvedAutowireMode() == AutowireCapableBeanFactory.AUTOWIRE_CONSTRUCTOR);
 			ConstructorArgumentValues resolvedValues = null;

@@ -544,6 +544,16 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
 			// 让 BeanPostProcessor 在这一步有机会返回代理，而不是 bean 实例，
 			// 要彻底了解清楚这个，需要去看 InstantiationAwareBeanPostProcessor 接口
+
+
+			/**
+			 * 这个方法在默认情况下全都返回null的
+			 * 这个方法可能跟aop有关系 后面再看
+			 */
+
+			/**
+			 * 这个地方时执行一个实现 InstantiationAwareBeanPostProcessor接口的BeanPostProcessor
+			 */
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
 				return bean;
@@ -616,6 +626,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 		if (instanceWrapper == null) {
 			// 说明不是 FactoryBean，这里实例化 Bean，这里非常关键 这个地方的注释有待考证
+
+			/**
+			 * 这个方法中选取适合的方法来进行实例化 这个地方可能会导致循环依赖报错
+			 * 因为这个地方没提前暴露早期对象
+			 */
 			instanceWrapper = createBeanInstance(beanName, mbd, args);
 		}
 		// 这个就是 Bean 里面的 我们定义的类 的实例，很多地方我描述成 "bean 实例"
@@ -642,6 +657,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					 * 于是在创建B实例,接着又发现B实例依赖A实例,于是从singletonFactories取出A实例完成装配,再将B返回给A,完成A的装配
 					 *
 					 *
+					 */
+
+					/**
+					 * 用后置处理器 MergedBeanDefinitionPostProcessor，允许修改MergedBeanDefinition，Autowired注解、
+					 * Value注解正是通过此方法实现注入类型的预解析
 					 */
 					applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName);
 				}
@@ -1261,60 +1281,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * @see #instantiateBean
 	 */
 
-	/**
-	 *
-	 * 我们主要关注上面代码的determineConstructorsFromBeanPostProcessors(beanClass, beanName)
-	 *
-	 * 这个方法的目的就是推测实例化需要的构造方法, 为什么需要先推测构造方法呢? 因为Spring实例化对象时,
-	 * 需要使用特定的构造方法才能反射出对象,这时如果程序员指定了带参数的构造方法,spring就会使用这个构造方法实例化对象,
-	 * 如果程序员提供了一个不带任何参数的默认构造方法,Spring会忽略它,按自己的逻辑使用默认的无参构造
-	 *
-	 * 所以上面的if-else分支目的很明确,先是尝试获取全部的构造方法,然后看看有没有解析出来构造方法,
-	 * 解析出来的话,就使用第一种逻辑,按照 特殊的构造方法模式进行处理,有解析出来,就使用默认的构造方法
-	 *
-	 * 我们进一步跟进这个determineConstructorsFromBeanPostProcessors(beanClass, beanName)方法,
-	 * 可以发现方法里面又是一波后置处理器的回调工作,这次选出的后置处理器的类型是SmartInstantiationAwareBeanPostProcessor,
-	 * 见名知意,这种处理器可以感知到心仪的构造方法,它的主要实现逻辑就是,查看这个将被实例化的对象中有没有添加了@Lookup注解的方法,
-	 * 有的话为这种方法生成代理,循环遍历所有的构造方法,看看这些构造方法上存在不存在@Value或者@Autowired注解,
-	 * 因为这些注解中存在required=true,只要存在这种注解,Spring就将他当成候选的构造方法,但是如果存在多个的话,
-	 * Spring也不知道到底用哪一个,但是在这里Spring会将所有符合条件的都选出来,但是一般情况下,都可以正确的选出合适的构造
-	 *
-	 * 选择出合适构造方法之后,就根据不同的构造方法,选择使用不同的方式去实例化对象, 都有什么方式呢? 两种方式
-	 *
-	 * 方式1:
-	 *
-	 * 这是比较复杂的方式,此时Spring需要在这个方法内存比较好几个候选的构造方法,计算它们的差异值,
-	 * 最终值最小的构造函数就是将要用来实例化对象的构造函数,当然很可能是选不出合适的构造函数的,
-	 * 于是Spring没有立即抛出异常,而是将异常添加进bean工厂的suppressedExceptions这个set集合中
-	 *
-	 * 如果成功的选择出来一个构造函数,就会使用jdk原生的反射机制,实例化一个对象
-	 *
-	 *
-	 * 方式2:
-	 *
-	 * 直接使用JDK原生的反射机制,实例化一个对象
-	 *
-	 *
-	 *
-	 * 结:
-	 *
-	 * 代码看到这里,方才说的有才华的那个类AbstactAutowiredCapatableBeanFactory中的
-	 *
-	 * doCreateBean()方法的instanceWrapper = createBeanInstance(beanName, mbd, args); 也就看完了,
-	 *
-	 * 到这里也就知道了,Spring会先把所有满足条件的bean全部实例化存放起来,这里的对象是百分百原生java对象,不掺水不含糖
-	 *
-	 * 接着往下看,我把代码重写贴出来, 下面还有五件大事,这四件大事说完了,本文就结束了
-	 *
-	 * 第一: 是applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName); 回调后置处理器,进行有关注解的缓存操作
-	 *
-	 * 第二: 是getEarlyBeanReference(beanName, mbd, bean) 获取一个提早暴露的beanDefinition对象,用于解决循环依赖问题
-	 *
-	 * 第三: 将刚才创建原生java对象存放一个叫singletonFactories的map中,这也是为了解决循环依赖而设计的数据结构,
-	 * 举个例子: 现在准备创建A实例, 然后将A实例添加到这个singletonFactories中,
-	 * 继续运行发现A实例依赖B实例,于是在创建B实例,接着又发现B实例依赖A实例,
-	 * 于是从singletonFactories取出A实例完成装配,再将B返回给A,完成A的装配
-	 */
+
 	protected BeanWrapper createBeanInstance(String beanName, RootBeanDefinition mbd, @Nullable Object[] args) {
 		// Make sure bean class is actually resolved at this point.
 		// 确保已经加载了此 class
@@ -1391,7 +1358,20 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		boolean resolved = false;
 
 		// todo 是否是必须自动装配
+
+		/**
+		 * 标识BeanDefinition构建的实例是否自动装配
+		 * 默认为false，不自动装配
+		 */
+
 		boolean autowireNecessary = false;
+
+		/**
+		 * 只有当没有参数参与实例的构建且存在指定的构建方式，才更改如上标识
+		 * 当原型模式的Bean在多次构建时，不用多次走推断了，这里的resolved和
+		 * constructorArgumentsResolved在第一次推断构建方式后被设置的
+		 */
+
 		if (args == null) {
 			synchronized (mbd.constructorArgumentLock) {
 				if (mbd.resolvedConstructorOrFactoryMethod != null) {
@@ -1401,6 +1381,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				}
 			}
 		}
+
+		/**
+		 * 为true的情况下走指定的构建方式创建实例，并根据是否自动装配走不同的方式
+		 */
+
 		if (resolved) {
 			if (autowireNecessary) {
 				// 构造函数依赖注入
@@ -1419,12 +1404,92 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		// Candidate constructors for autowiring?
 		// 判断是否采用有参构造函数
+
+		/**
+		 * 不自动注入：AUTOWIRE_NO
+		 * 使用BeanName策略注入：AUTOWIRE_BY_NAME
+		 * 使用类型装配策略：AUTOWIRE_BY_TYPE
+		 * 使用构造器装配策略：AUTOWIRE_CONSTRUCTOR
+		 * 自动装配策略：AUTOWIRE_AUTODETECT
+		 */
+
+		/**
+		 * 获取可选的构造(使用的是BeanPostProcessor)
+		 * 可选的是指有且仅有一个有参构造 或者 有且仅有一个@Autowired注解构造
+		 */
+
+
+		/**
+		 * 以下条件符合其一即可进入
+		 * 	1、存在可选构造
+		 * 	2、自动装配模型为构造函数自动装配
+		 * 	3、给BeanDefinition中设置了构造参数值
+		 * 	4、有参与构造函数参数列表的参数
+		 */
+
 		Constructor<?>[] ctors = determineConstructorsFromBeanPostProcessors(beanClass, beanName);
 		if (ctors != null || mbd.getResolvedAutowireMode() == AUTOWIRE_CONSTRUCTOR ||
 				mbd.hasConstructorArgumentValues() || !ObjectUtils.isEmpty(args)) {
 			// todo 使用特定的构造方法完成自动装配
 			return autowireConstructor(beanName, mbd, ctors, args);
 		}
+
+		/**
+		 *
+		 * 我们主要关注上面代码的determineConstructorsFromBeanPostProcessors(beanClass, beanName)
+		 *
+		 * 这个方法的目的就是推测实例化需要的构造方法, 为什么需要先推测构造方法呢? 因为Spring实例化对象时,
+		 * 需要使用特定的构造方法才能反射出对象,这时如果程序员指定了带参数的构造方法,spring就会使用这个构造方法实例化对象,
+		 * 如果程序员提供了一个不带任何参数的默认构造方法,Spring会忽略它,按自己的逻辑使用默认的无参构造
+		 *
+		 * 所以上面的if-else分支目的很明确,先是尝试获取全部的构造方法,然后看看有没有解析出来构造方法,
+		 * 解析出来的话,就使用第一种逻辑,按照 特殊的构造方法模式进行处理,有解析出来,就使用默认的构造方法
+		 *
+		 * 我们进一步跟进这个determineConstructorsFromBeanPostProcessors(beanClass, beanName)方法,
+		 * 可以发现方法里面又是一波后置处理器的回调工作,这次选出的后置处理器的类型是SmartInstantiationAwareBeanPostProcessor,
+		 * 见名知意,这种处理器可以感知到心仪的构造方法,它的主要实现逻辑就是,查看这个将被实例化的对象中有没有添加了@Lookup注解的方法,
+		 * 有的话为这种方法生成代理,循环遍历所有的构造方法,看看这些构造方法上存在不存在@Value或者@Autowired注解,
+		 * 因为这些注解中存在required=true,只要存在这种注解,Spring就将他当成候选的构造方法,但是如果存在多个的话,
+		 * Spring也不知道到底用哪一个,但是在这里Spring会将所有符合条件的都选出来,但是一般情况下,都可以正确的选出合适的构造
+		 *
+		 * 选择出合适构造方法之后,就根据不同的构造方法,选择使用不同的方式去实例化对象, 都有什么方式呢? 两种方式
+		 *
+		 * 方式1:
+		 *
+		 * 这是比较复杂的方式,此时Spring需要在这个方法内存比较好几个候选的构造方法,计算它们的差异值,
+		 * 最终值最小的构造函数就是将要用来实例化对象的构造函数,当然很可能是选不出合适的构造函数的,
+		 * 于是Spring没有立即抛出异常,而是将异常添加进bean工厂的suppressedExceptions这个set集合中
+		 *
+		 * 如果成功的选择出来一个构造函数,就会使用jdk原生的反射机制,实例化一个对象
+		 *
+		 *
+		 * 方式2:
+		 *
+		 * 直接使用JDK原生的反射机制,实例化一个对象
+		 *
+		 *
+		 *
+		 * 结:
+		 *
+		 * 代码看到这里,方才说的有才华的那个类AbstactAutowiredCapatableBeanFactory中的
+		 *
+		 * doCreateBean()方法的instanceWrapper = createBeanInstance(beanName, mbd, args); 也就看完了,
+		 *
+		 * 到这里也就知道了,Spring会先把所有满足条件的bean全部实例化存放起来,这里的对象是百分百原生java对象,不掺水不含糖
+		 *
+		 * 接着往下看,我把代码重写贴出来, 下面还有五件大事,这四件大事说完了,本文就结束了
+		 *
+		 * 第一: 是applyMergedBeanDefinitionPostProcessors(mbd, beanType, beanName); 回调后置处理器,进行有关注解的缓存操作
+		 *
+		 * 第二: 是getEarlyBeanReference(beanName, mbd, bean) 获取一个提早暴露的beanDefinition对象,用于解决循环依赖问题
+		 *
+		 * 第三: 将刚才创建原生java对象存放一个叫singletonFactories的map中,这也是为了解决循环依赖而设计的数据结构,
+		 * 举个例子: 现在准备创建A实例, 然后将A实例添加到这个singletonFactories中,
+		 * 继续运行发现A实例依赖B实例,于是在创建B实例,接着又发现B实例依赖A实例,
+		 * 于是从singletonFactories取出A实例完成装配,再将B返回给A,完成A的装配
+		 */
+
+
 
 		// Preferred constructors for default construction?
 		ctors = mbd.getPreferredConstructors();
@@ -1436,6 +1501,14 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// No special handling: simply use no-arg constructor.
 		// 调用无参构造函数
 		//todo 使用默认的无参构造方法进行初始化
+
+
+		/**
+		 * 使用无参构造函数创建对象
+		 * 注意：没有无参构造且存在多个有参构造且没有@Autowired注解构造，会报错
+		 */
+
+
 		return instantiateBean(beanName, mbd);
 	}
 
@@ -1499,6 +1572,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 	 * @return the candidate constructors, or {@code null} if none specified
 	 * @throws org.springframework.beans.BeansException in case of errors
 	 * @see org.springframework.beans.factory.config.SmartInstantiationAwareBeanPostProcessor#determineCandidateConstructors
+	 */
+
+	/**
+	 * 确定用于给定bean的候选构造函数,使用Bean的后置处理器机制
+	 * @see AutowiredAnnotationBeanPostProcessor#determineCandidateConstructors(java.lang.Class, java.lang.String)
 	 */
 	@Nullable
 	protected Constructor<?>[] determineConstructorsFromBeanPostProcessors(@Nullable Class<?> beanClass, String beanName)
@@ -1629,7 +1707,6 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		// to support styles of field injection.
 		// 到这步的时候，bean 实例化完成（通过工厂方法或构造方法），但是还没开始属性设值，
 		// InstantiationAwareBeanPostProcessor 的实现类可以在这里对 bean 进行状态修改，
-		// 我也没找到有实际的使用，所以我们暂且忽略这块吧
 
 		if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
 			for (BeanPostProcessor bp : getBeanPostProcessors()) {
@@ -1686,9 +1763,6 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 						}
 						// 这里有个非常有用的 BeanPostProcessor 进到这里: AutowiredAnnotationBeanPostProcessor
 						// 对采用 @Autowired、@Value 注解的依赖进行设值，这里的内容也是非常丰富的，
-						// 不过本文不会展开说了，感兴趣的读者请自行研究
-
-
 						/**
 						 * todo 进去
 						 */
@@ -1701,6 +1775,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 				}
 			}
 		}
+
 		if (needsDepCheck) {
 			if (filteredPds == null) {
 				filteredPds = filterPropertyDescriptorsForDependencyCheck(bw, mbd.allowCaching);

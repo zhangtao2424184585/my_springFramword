@@ -145,7 +145,9 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 	private ConfigurableListableBeanFactory beanFactory;
 
 	private final Set<String> lookupMethodsChecked = Collections.newSetFromMap(new ConcurrentHashMap<>(256));
-
+	/**
+	 *根据类型来获取使用过的构造函数 不用重新判断了
+	 */
 	private final Map<Class<?>, Constructor<?>[]> candidateConstructorsCache = new ConcurrentHashMap<>(256);
 
 	private final Map<String, InjectionMetadata> injectionMetadataCache = new ConcurrentHashMap<>(256);
@@ -259,15 +261,30 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 			throws BeanCreationException {
 
 		// Let's check for lookup methods here...
+
+		/**
+		 * 处理含有@Lookup注解的方法
+		 * 如果集合中没有BeanName，则走一遍Bean中所有的方法，过滤是否含有Lookup方法
+		 */
+
 		if (!this.lookupMethodsChecked.contains(beanName)) {
 			if (AnnotationUtils.isCandidateClass(beanClass, Lookup.class)) {
 				try {
 					Class<?> targetClass = beanClass;
 					do {
+						/**
+						 * 在方法中循环过滤所有的方法
+						 */
 						ReflectionUtils.doWithLocalMethods(targetClass, method -> {
 							Lookup lookup = method.getAnnotation(Lookup.class);
+							/**
+							 * 获取method上的@Lookup注解
+							 */
 							if (lookup != null) {
 								Assert.state(this.beanFactory != null, "No BeanFactory available");
+								/**
+								 * 存在此注解的话，就将方法和注解中的内容构建LookupOverride对象，设置进BeanDefinition中
+								 */
 								LookupOverride override = new LookupOverride(method, lookup.value());
 								try {
 									RootBeanDefinition mbd = (RootBeanDefinition)
@@ -289,10 +306,18 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 					throw new BeanCreationException(beanName, "Lookup method resolution failed", ex);
 				}
 			}
+			/**
+			 * 无论对象中是否含有@Lookup方法，过滤完成后都会放到集合中，证明此Bean已经检查完@Lookup注解了
+			 */
 			this.lookupMethodsChecked.add(beanName);
 		}
 
 		// Quick check on the concurrent map first, with minimal locking.
+		/**
+		 * 从缓存中拿构造函数，不存在的话就进入代码块中再拿一遍，还不存在的话就进行下方的逻辑
+		 * 同时这个参数是最终返回的
+		 * 这里是双重检查 单利模式
+		 */
 		Constructor<?>[] candidateConstructors = this.candidateConstructorsCache.get(beanClass);
 		if (candidateConstructors == null) {
 			// Fully synchronized resolution now...
@@ -300,6 +325,9 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 				candidateConstructors = this.candidateConstructorsCache.get(beanClass);
 				if (candidateConstructors == null) {
 					Constructor<?>[] rawCandidates;
+					/**
+					 * 获取Bean中所有的构造函数
+					 */
 					try {
 						rawCandidates = beanClass.getDeclaredConstructors();
 					}
@@ -308,20 +336,54 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 								"Resolution of declared constructors on bean Class [" + beanClass.getName() +
 								"] from ClassLoader [" + beanClass.getClassLoader() + "] failed", ex);
 					}
+					/**
+					 * 暂时 候选构造函数集合，通过下面代码得知，这个集合中只能有一个值
+					 */
 					List<Constructor<?>> candidates = new ArrayList<>(rawCandidates.length);
+					/**
+					 * 带有依赖项的构造函数
+					 */
 					Constructor<?> requiredConstructor = null;
+					/**
+					 * 默认使用的构造函数
+					 */
 					Constructor<?> defaultConstructor = null;
+					/**
+					 * 获取主构造函数(在Klion语言中存在),下方关于这个变量不再解释，不研究
+					 */
 					Constructor<?> primaryConstructor = BeanUtils.findPrimaryConstructor(beanClass);
+					/**
+					 * 标识，表示不是合成构造函数的数量
+					 * 合成构造函数 -> 有方法参数并对实例进行赋值的构造函数
+					 */
 					int nonSyntheticConstructors = 0;
+					/**
+					 * 遍历所有的构造函数
+					 */
 					for (Constructor<?> candidate : rawCandidates) {
+						/**
+						 * 构造函数不是合成构造函数，标识累加
+						 * @see assist.IsSynthetic#main(java.lang.String[])
+						 */
 						if (!candidate.isSynthetic()) {
 							nonSyntheticConstructors++;
 						}
+						/**
+						 * 忽略
+						 */
 						else if (primaryConstructor != null) {
 							continue;
 						}
+						/**
+						 * 查找构造函数上{@link Autowired}注解的属性
+						 * 断点应该还判断{@link Value}的属性，但是此注解不能注释在构造函数上，暂时不理解
+						 */
 						MergedAnnotation<?> ann = findAutowiredAnnotation(candidate);
 						if (ann == null) {
+							/**
+							 * 注解不存在,则再通过方法获取用户类，如果是用户类则返回用户类，还判断了CGLIB情况，
+							 * CGLIB情况则返回目标类，然后获取参数一致的构造函数再获取注解
+							 */
 							Class<?> userClass = ClassUtils.getUserClass(beanClass);
 							if (userClass != beanClass) {
 								try {
@@ -334,6 +396,9 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 								}
 							}
 						}
+						/**
+						 * 构造函数上存在注解@Autowire
+						 */
 						if (ann != null) {
 							if (requiredConstructor != null) {
 								throw new BeanCreationException(beanName,
@@ -341,7 +406,18 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 										". Found constructor with 'required' Autowired annotation already: " +
 										requiredConstructor);
 							}
+							/**
+							 * 获取@Autowired注解中required属性的值
+							 */
 							boolean required = determineRequiredStatus(ann);
+							/**
+							 * 为true则将这个构造函数设置为带有依赖项的构造函数
+							 * 并进行一个判断，不可存在多个带有依赖项的构造函数
+							 */
+
+							/**
+							 * 只要是加了2个@Autowired 就报错错
+							 */
 							if (required) {
 								if (!candidates.isEmpty()) {
 									throw new BeanCreationException(beanName,
@@ -353,10 +429,18 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 							}
 							candidates.add(candidate);
 						}
+						/**
+						 * 如果构造函数的参数为零，则是默认构造函数
+						 */
 						else if (candidate.getParameterCount() == 0) {
 							defaultConstructor = candidate;
 						}
 					}
+					/**
+					 * 存在@Autowired注解的函数，并且required值为false，则此注解不起作用
+					 * 但是存在默认构造函数，则将默认构造函数添加进集合中
+					 * 并将集合变为数组使用
+					 */
 					if (!candidates.isEmpty()) {
 						// Add default constructor to list of optional constructors, as fallback.
 						if (requiredConstructor == null) {
@@ -372,16 +456,31 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 						}
 						candidateConstructors = candidates.toArray(new Constructor<?>[0]);
 					}
+					/**
+					 * 如果只存在一个构造函数，且这个构造函数有参数列表，则使用这个构造函数
+					 */
 					else if (rawCandidates.length == 1 && rawCandidates[0].getParameterCount() > 0) {
 						candidateConstructors = new Constructor<?>[] {rawCandidates[0]};
 					}
+					/**
+					 * ----忽略----  (注释还是加上吧)
+					 * 如果非合成构造存在两个且有主构造和默认构造，且主构造和默认构造不相等
+					 * 这两个一块使用
+					 */
 					else if (nonSyntheticConstructors == 2 && primaryConstructor != null &&
 							defaultConstructor != null && !primaryConstructor.equals(defaultConstructor)) {
 						candidateConstructors = new Constructor<?>[] {primaryConstructor, defaultConstructor};
 					}
+					/**
+					 * ----忽略----  (注释还是加上吧)
+					 * 如果只有一个非合成构造且有主构造，使用主构造
+					 */
 					else if (nonSyntheticConstructors == 1 && primaryConstructor != null) {
 						candidateConstructors = new Constructor<?>[] {primaryConstructor};
 					}
+					/**
+					 * 否则没有能够直接使用的构造
+					 */
 					else {
 						candidateConstructors = new Constructor<?>[0];
 					}
@@ -389,6 +488,9 @@ public class AutowiredAnnotationBeanPostProcessor extends InstantiationAwareBean
 				}
 			}
 		}
+		/**
+		 * 使用构造列表中没有值，则返回null
+		 */
 		return (candidateConstructors.length > 0 ? candidateConstructors : null);
 	}
 

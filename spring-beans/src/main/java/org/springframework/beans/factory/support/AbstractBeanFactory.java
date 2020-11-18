@@ -423,6 +423,9 @@ public abstract class AbstractBeanFactory extends FactoryBeanRegistrySupport imp
 									"Circular depends-on relationship between '" + beanName + "' and '" + dep + "'");
 						}
 						// 注册一下依赖关系
+						/**
+						 * 将依赖关系相互注册
+						 */
 						registerDependentBean(dep, beanName);
 						try {
 							// 先初始化被依赖项
